@@ -11,6 +11,10 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+#ifndef WHEELTEC_PATH_FOLLOW_FILE
+#define WHEELTEC_PATH_FOLLOW_FILE "wheeltec_path"
+#endif
+
 //路径保存中，相邻两点的间隔
 double RECORD_PATH_LEN_DENS = 0.05;
 double RECORD_PATH_AGU_DENS = 10 * M_PI / 180;
@@ -21,7 +25,7 @@ int main(int argc, char **argv)
   std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("save_path");
 
   std::string pathfilename;
-  node->declare_parameter<std::string>("pathfilename", "/home/wheeltec/wheeltec_ros2/src/wheeltec_path_follow/path/wheeltec_path");
+  node->declare_parameter<std::string>("pathfilename", WHEELTEC_PATH_FOLLOW_FILE);
   node->get_parameter("pathfilename", pathfilename);
   auto pub_ = node->create_publisher<nav_msgs::msg::Path>("followpath", 10);
 

@@ -65,6 +65,8 @@ add_executable(wheeltec_m07 src/wheeltec_m07.cpp)
 ament_target_dependencies(wheeltec_m07 rclcpp std_msgs serial)
 
 add_executable(voice_control src/voice_control.cpp)
+target_compile_definitions(voice_control PRIVATE
+  WHEELTEC_MIC_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 ament_target_dependencies(voice_control rclcpp std_msgs wheeltec_mic_msg)
 target_link_libraries(voice_control ${catkin_LIBRARIES} offline_record_lib rt dl pthread stdc++ asound samplerate)
 

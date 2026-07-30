@@ -1,3 +1,5 @@
+from glob import glob
+
 from setuptools import setup
 
 package_name = 'ultralytics_ros2'
@@ -11,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/yolo.launch.py']),
+        ('share/' + package_name + '/model', glob('model/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

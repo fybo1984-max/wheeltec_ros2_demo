@@ -48,7 +48,11 @@
 using namespace aiui_va;
 using namespace aiui_v2;
 
-#define CURRENT_PATH "/home/wheeltec/wheeltec_ros2/src/wheeltec_mic_aiui"
+#ifndef WHEELTEC_MIC_AIUI_SOURCE_DIR
+#define WHEELTEC_MIC_AIUI_SOURCE_DIR "."
+#endif
+
+#define CURRENT_PATH WHEELTEC_MIC_AIUI_SOURCE_DIR
 
 IAIUIAgent* g_pAgent = nullptr;
 

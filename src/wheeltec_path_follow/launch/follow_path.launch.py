@@ -12,7 +12,15 @@ import launch_ros.actions
 
 def generate_launch_description():
     #路径跟踪文件路径
-    pathfilename = DeclareLaunchArgument('pathfilename',default_value='/home/wheeltec/wheeltec_ros2/src/wheeltec_path_follow/path/wheeltec_path')
+    default_path = os.path.join(
+        get_package_share_directory('wheeltec_path_follow'),
+        'path',
+        'wheeltec_path',
+    )
+    pathfilename = DeclareLaunchArgument(
+        'pathfilename',
+        default_value=default_path,
+    )
     #是否循环进行路径跟踪
     run_in_loop = DeclareLaunchArgument('run_in_loop',default_value='False')
     #路径跟踪中是否绕开障碍物：
@@ -66,4 +74,3 @@ def generate_launch_description():
         pathfilename,run_in_loop,avoid,lookahead_distance_,w_max,v_max,position_tolerance,avoid_distance,
         follow_path,pure_pursuit,laser_tracker
     ])
-

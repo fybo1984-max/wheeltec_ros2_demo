@@ -5,6 +5,7 @@
 #2:Python.源码文件默认使用utf-8编码，可以正常解析中文，一般而言，都会声明为utf-8编码
 
 #引用ros库
+from ament_index_python.packages import get_package_share_directory
 import rclpy
 from rclpy.node import Node
 from nav2_simple_commander.robot_navigator import BasicNavigator,TaskResult
@@ -47,8 +48,9 @@ import math
 import os
 
 #存放充电桩位置的文件位置
-json_file='/home/wheeltec/wheeltec_ros2/src/auto_recharge_ros2/Charger_Position.json'
-yaml_file='/home/wheeltec/wheeltec_ros2/src/auto_recharge_ros2/robot_info.yaml'
+package_share_dir = get_package_share_directory('auto_recharge_ros2')
+json_file = os.path.join(package_share_dir, 'Charger_Position.json')
+yaml_file = os.path.join(package_share_dir, 'robot_info.yaml')
 #print_and_fixRetract相关，用于打印带颜色的信息
 RESET = '\033[0m'
 RED   = '\033[1;31m'

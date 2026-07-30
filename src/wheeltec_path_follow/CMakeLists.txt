@@ -54,6 +54,8 @@ include_directories(
 
 add_executable(save_path src/save_path.cpp)
 ament_target_dependencies(save_path tf2_ros tf2 tf2_geometry_msgs rclcpp geometry_msgs std_msgs nav_msgs std_srvs sensor_msgs visualization_msgs)
+target_compile_definitions(save_path PRIVATE
+  WHEELTEC_PATH_FOLLOW_FILE="${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/path/wheeltec_path")
 install(TARGETS save_path DESTINATION  lib/${PROJECT_NAME})
 
 add_executable(pure_pursuit src/pure_pursuit.cpp)

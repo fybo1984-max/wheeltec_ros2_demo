@@ -55,6 +55,8 @@ link_directories(${CMAKE_CURRENT_LIST_DIR}/libs/arm64)
 
 add_executable(${PROJECT_NAME}  ${SOURCE_FILE})
 ament_target_dependencies(${PROJECT_NAME} rclcpp std_msgs)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  WHEELTEC_MIC_AIUI_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(${PROJECT_NAME} aiui asound samplerate pthread stdc++)
 
 add_executable(node_feedback node/node_feedback.cpp)

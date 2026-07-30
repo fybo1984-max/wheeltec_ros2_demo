@@ -1,5 +1,8 @@
 #! /usr/bin/env python3
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import PoseStamped
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 import rclpy
@@ -57,7 +60,12 @@ def main():
     record_path_pub_ = node.create_publisher(Path, 'followpath', QoSProfile(depth=10))
     pure_pursuit_pub_ = node.create_publisher(Path, 'waypoints', QoSProfile(depth=10))
     arrival_sub = node.create_subscription(Bool,'arrival',arrival_callback,QoSProfile(depth=10))
-    node.declare_parameter('pathfilename', "/home/wheeltec/wheeltec_ros2/src/wheeltec_path_follow/path/wheeltec_path")
+    default_path = os.path.join(
+        get_package_share_directory('wheeltec_path_follow'),
+        'path',
+        'wheeltec_path',
+    )
+    node.declare_parameter('pathfilename', default_path)
     pathfilename = node.get_parameter('pathfilename').get_parameter_value().string_value
     node.declare_parameter('run_in_loop', True)
     run_in_loop = node.get_parameter('run_in_loop').get_parameter_value().bool_value

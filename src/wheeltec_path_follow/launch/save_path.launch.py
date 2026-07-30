@@ -11,7 +11,15 @@ import launch_ros.actions
 
 def generate_launch_description():
     #路径跟踪文件路径
-    pathfilename = DeclareLaunchArgument('pathfilename',default_value='/home/wheeltec/wheeltec_ros2/src/wheeltec_path_follow/path/wheeltec_path')
+    default_path = os.path.join(
+        get_package_share_directory('wheeltec_path_follow'),
+        'path',
+        'wheeltec_path',
+    )
+    pathfilename = DeclareLaunchArgument(
+        'pathfilename',
+        default_value=default_path,
+    )
 
     save_path = launch_ros.actions.Node(
             package='wheeltec_path_follow', 
@@ -25,4 +33,3 @@ def generate_launch_description():
     return LaunchDescription([
         pathfilename,save_path
     ])
-

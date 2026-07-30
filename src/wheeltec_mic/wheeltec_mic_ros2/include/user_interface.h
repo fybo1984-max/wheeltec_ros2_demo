@@ -18,7 +18,11 @@ const std::string SYSTEM_PATH = "/tmp/system.tar";
 const std::string SYSTEM_CONFIG_PATH = "/tmp/config.txt";
 
 /******与离线命令词识别相关参数******/
-std::string source_path = "/home/wheeltec/wheeltec_ros2/src/wheeltec_mic/wheeltec_mic_ros2";
+#ifndef WHEELTEC_MIC_SOURCE_DIR
+#define WHEELTEC_MIC_SOURCE_DIR "."
+#endif
+
+std::string source_path = WHEELTEC_MIC_SOURCE_DIR;
 std::string appid ;
 std::string denoise_sound_path;
 const std::string BEGIN_PREFIX = "fo|";
@@ -27,7 +31,6 @@ const std::string GRM_BUILD_PATH = "/config/msc/res/asr/GrmBuilld";  	//构建�
 const std::string GRM_FILE = "/config/call.bnf";						//构建离线识别语法网络所用的语法文件，用户自修改文件
 const std::string LEX_NAME = "contact";
 char *APPID = (char*)" ";
-
 
 
 

@@ -25,3 +25,5 @@
 `build/`、`install/` 和 `log/` 没有上传，因为其中包含工作空间绝对路径，复制到其他目录会引起 ROS 2 包索引和动态库路径错误。云服务密钥、设备账号配置以及大型厂商模型/SDK 二进制文件也不会上传。
 
 恢复、编译和私密配置说明见 [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md)。
+当前机器人上的双工作空间使用方法见
+[INNOVATION_WORKSPACE.md](INNOVATION_WORKSPACE.md)。
