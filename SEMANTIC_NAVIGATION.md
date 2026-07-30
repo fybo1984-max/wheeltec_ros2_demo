@@ -100,9 +100,9 @@ colcon test-result \
 语义膨胀、静态/话题输入、插件加载，以及“只增加软成本、不清除未知区、
 不降低致命障碍”的合并边界。动态生成包 12 项测试通过，其中 9 项行为测试
 覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减和地图栅格化。
-规划器实验包 11 项测试通过，其中 8 项行为测试覆盖 Nav2 PGM 坐标转换、
+规划器实验包 15 项测试通过，其中 12 项行为测试覆盖 Nav2 PGM 坐标转换、
 OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、语义边界间距、
-指标差值和输入哈希。
+指标差值、输入哈希、可比较性校验、统计汇总和路径重复性检测。
 
 ## 第二阶段：动态 RGB-D 风险 mask
 
@@ -292,6 +292,37 @@ ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
 `delta_recovered_minus_baseline` 保存恢复路径与基线的指标差异。这验证了动态
 风险不会永久残留在 costmap。该实验验证软件时序，不替代真实检测丢失、遮挡和
 跟踪抖动测试。
+
+### 重复试验统计
+
+`semantic_planning_summary` 读取两个或更多 A/B JSON，默认拒绝带 `-dirty`
+提交或关键输入不一致的报告。关键输入包括代码提交、地图与规划器配置哈希、
+生成器配置及运行参数、起终点、mask 输入模式和语义策略参数。
+
+```bash
+ros2 run semantic_planning_experiments semantic_planning_summary \
+  --output /tmp/semantic_repeatability_summary.json \
+  /tmp/semantic_repeatability_01.json \
+  /tmp/semantic_repeatability_02.json \
+  /tmp/semantic_repeatability_03.json
+```
+
+汇总报告为每个条件记录：
+
+- 路径 SHA-256、唯一哈希数量和逐点重复性；
+- 指标样本数、均值、总体标准差、最小值和最大值；
+- 输入报告路径、报告文件 SHA-256 和统一比较指纹。
+
+当前在干净提交 `da778c1` 上连续完成三次合成 RGB-D 端到端试验：
+
+| 条件 | 路径长度 | 风险区穿越 | 最小间距 | 规划耗时均值 ± 总体标准差 |
+| --- | ---: | ---: | ---: | ---: |
+| 基线 | 14.0053 m | 2.3474 m | 0 m | 14.8 ± 1.4 ms |
+| 语义 | 17.4593 m | 0 m | 1.1088 m | 339.0 ± 9.6 ms |
+
+两种条件分别只有一个唯一路径哈希，所有非耗时指标总体标准差均为 0。该结果
+验证确定性合成链路和统计工具；样本量仅为 3，不能替代论文中的多场景、多随机
+种子和真实传感器重复试验。
 
 ## 后续阶段与验收
 

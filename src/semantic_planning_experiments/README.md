@@ -103,6 +103,20 @@ The JSON report includes:
 - minimum path-to-semantic-boundary clearance;
 - semantic-minus-baseline metric deltas.
 
+Summarize two or more repeated reports:
+
+```bash
+ros2 run semantic_planning_experiments semantic_planning_summary \
+  --output /tmp/semantic_repeatability_summary.json \
+  /tmp/semantic_repeatability_01.json \
+  /tmp/semantic_repeatability_02.json \
+  /tmp/semantic_repeatability_03.json
+```
+
+The summarizer rejects dirty revisions and mismatched code, configuration,
+route, source, or policy inputs. It reports metric mean, population standard
+deviation, range, and exact path SHA-256 repeatability for each condition.
+
 Reports default to `/tmp` and must not be committed as claimed research
 results until the selected map, mask, and experiment region have been
 validated.

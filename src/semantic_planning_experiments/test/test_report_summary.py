@@ -111,3 +111,17 @@ def test_summary_rejects_incomparable_inputs(tmp_path: Path):
 
     with pytest.raises(ValueError, match='not comparable'):
         summarize_reports([first, second])
+
+
+def test_summary_marks_changed_path_geometry(tmp_path: Path):
+    first_report = _report()
+    second_report = _report()
+    second_report['semantic']['path'][1]['y'] = 1.5
+    first = _write_report(tmp_path / 'first.json', first_report)
+    second = _write_report(tmp_path / 'second.json', second_report)
+
+    summary = summarize_reports([first, second])
+
+    assert not summary['all_path_geometries_repeatable']
+    assert not summary['conditions']['semantic']['path_geometry_repeatable']
+    assert summary['conditions']['semantic']['unique_path_hash_count'] == 2
