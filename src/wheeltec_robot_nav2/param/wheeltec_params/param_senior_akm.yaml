@@ -275,7 +275,7 @@ global_costmap:
       footprint: "[ [-0.09, -0.185], [-0.09, 0.185], [0.4,0.185], [0.4, -0.185] ]"
       resolution: 0.05                  #全局地图1像素的分辨率，以米为单位
       track_unknown_space: true
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"] #插件包括：{“静态层”，“障碍层”，“膨胀层”}
+      plugins: ["static_layer", "obstacle_layer", "mask_layer", "inflation_layer"] #语义层默认关闭，不改变稳定导航行为
       obstacle_layer:  #障碍层参数
         plugin: "nav2_costmap_2d::ObstacleLayer" #障碍层插件
         enabled: True
@@ -293,6 +293,16 @@ global_costmap:
       static_layer: #静态层参数
         plugin: "nav2_costmap_2d::StaticLayer"     #静态层插件
         map_subscribe_transient_local: True
+      mask_layer:
+        plugin: "semantic_costmap_plugin::MaskLayer"
+        enabled: False
+        map_yaml_path: "$(find-pkg-share wheeltec_nav2)/map/large_loop_semantic_mask_example.yaml"
+        mask_cost_value: 125
+        task_urgency: 0
+        avoidance_level: 70.0
+        inflation_radius: 0.5
+        cost_scaling_factor: 2.0
+        inflate_unknown: False
       inflation_layer: #膨胀层参数
         plugin: "nav2_costmap_2d::InflationLayer"  #膨胀层插件
         cost_scaling_factor: 5.0                   #成本缩放因子，决定障碍物成本随距离的递减速度。

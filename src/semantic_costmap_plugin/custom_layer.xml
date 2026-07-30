@@ -1,0 +1,9 @@
+<library path="semantic_costmap_plugin_core">
+  <class
+    type="semantic_costmap_plugin::MaskLayer"
+    base_class_type="nav2_costmap_2d::Layer">
+    <description>
+      Applies traversable semantic-zone costs from a map-aligned mask.
+    </description>
+  </class>
+</library>

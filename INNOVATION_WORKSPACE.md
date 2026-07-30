@@ -68,6 +68,12 @@ ros2 launch largemodel largemodel_control.launch.py \
 
 - 独立构建成功：52 个依赖及目标包完成。
 - 固定语音指令和点位持久化测试：81 项通过。
+- 语义 costmap 插件：10 个 CTest 全部通过，其中 9 个行为测试通过。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。
+
+## 语义导航创新
+
+工业 AGV 语义 costmap 的设计判断、上游版本、静态 mask PoC、运行安全提示
+和分阶段实验方法见 [`SEMANTIC_NAVIGATION.md`](SEMANTIC_NAVIGATION.md)。

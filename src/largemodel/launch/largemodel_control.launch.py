@@ -41,6 +41,9 @@ def generate_launch_description():
     nav_batch_size = LaunchConfiguration('nav_batch_size')
     nav_progress_radius = LaunchConfiguration('nav_progress_radius')
     nav_progress_timeout = LaunchConfiguration('nav_progress_timeout')
+    semantic_costmap_enabled = LaunchConfiguration('semantic_costmap_enabled')
+    semantic_task_urgency = LaunchConfiguration('semantic_task_urgency')
+    semantic_avoidance_level = LaunchConfiguration('semantic_avoidance_level')
     nav_controller_frequency_arg = DeclareLaunchArgument(
         'nav_controller_frequency',
         default_value='10.0',
@@ -70,6 +73,21 @@ def generate_launch_description():
         'nav_progress_timeout',
         default_value='20.0',
         description='大模型联合导航允许未达到最小移动距离的时间（秒）'
+    )
+    semantic_costmap_enabled_arg = DeclareLaunchArgument(
+        'semantic_costmap_enabled',
+        default_value='false',
+        description='是否启用全局语义软成本层；默认关闭以保持稳定演示行为'
+    )
+    semantic_task_urgency_arg = DeclareLaunchArgument(
+        'semantic_task_urgency',
+        default_value='0',
+        description='任务紧急度，范围0到10；越高越允许穿越语义区域'
+    )
+    semantic_avoidance_level_arg = DeclareLaunchArgument(
+        'semantic_avoidance_level',
+        default_value='70.0',
+        description='语义区域避让级别，范围0到100；越高绕行倾向越强'
     )
     params_file=os.path.join(get_package_share_directory('largemodel'), "config", "param.yaml")
     wheeltec_robot_dir = get_package_share_directory('turn_on_wheeltec_robot')
@@ -131,6 +149,12 @@ def generate_launch_description():
             'batch_size': nav_batch_size,
             'required_movement_radius': nav_progress_radius,
             'movement_time_allowance': nav_progress_timeout,
+            'global_costmap.global_costmap.ros__parameters.mask_layer.enabled':
+                semantic_costmap_enabled,
+            'global_costmap.global_costmap.ros__parameters.mask_layer.task_urgency':
+                semantic_task_urgency,
+            'global_costmap.global_costmap.ros__parameters.mask_layer.avoidance_level':
+                semantic_avoidance_level,
         },
         convert_types=True,
     )
@@ -202,6 +226,9 @@ def generate_launch_description():
         nav_batch_size_arg,
         nav_progress_radius_arg,
         nav_progress_timeout_arg,
+        semantic_costmap_enabled_arg,
+        semantic_task_urgency_arg,
+        semantic_avoidance_level_arg,
         model_server,          #启动模型服务节点
         action_server,         #启动动作服务节点
         wheeltec_mic,
