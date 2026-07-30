@@ -13,6 +13,11 @@ traversable semantic zones. It applies a Sugeno fuzzy cost controlled by:
 The mask cost is a soft cost (`0..252`), not a lethal obstacle. The existing
 Nav2 planner and controller therefore remain unchanged.
 
+`mask_source` selects either a Nav2 map YAML (`file`) or a live
+`nav_msgs/OccupancyGrid` (`topic`). Topic values in `[1, 100]` are scaled
+proportionally to `mask_cost_value`, so different semantic classes can retain
+different soft-risk strengths.
+
 ## WHEELTEC integration
 
 The current `senior_akm` Nav2 configuration contains the layer but leaves it
@@ -22,6 +27,7 @@ disabled. Use the innovation launch with:
 ros2 launch largemodel largemodel_control.launch.py \
   use_nav:=true \
   semantic_costmap_enabled:=true \
+  semantic_mask_source:=file \
   semantic_task_urgency:=0 \
   semantic_avoidance_level:=70.0
 ```

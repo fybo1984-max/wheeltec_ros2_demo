@@ -22,6 +22,7 @@ def spawn_camera_nodes(context, *args, **kwargs):
 
     # 2. 决定使用哪个相机
     camera_mode_ = LaunchConfiguration('camera_mode').perform(context) or cfg['camera_mode']
+    depth_registration = LaunchConfiguration('depth_registration')
     print(f'camera_mode:{camera_mode_}')
     file_name = f'{camera_mode_}.launch.xml'
 
@@ -40,7 +41,10 @@ def spawn_camera_nodes(context, *args, **kwargs):
     if camera_mode_.startswith('astra') or camera_mode_.startswith('dabai') or camera_mode_.startswith('gemini'):
         camera_launch = IncludeLaunchDescription(
             AnyLaunchDescriptionSource(os.path.join(astra_launch_dir, file_name)),
-            launch_arguments=[('enable_d2c_viewer', 'True')]
+            launch_arguments=[
+                ('enable_d2c_viewer', 'True'),
+                ('depth_registration', depth_registration),
+            ]
         )
     elif camera_mode_.startswith('usb'):
         camera_launch = IncludeLaunchDescription(
@@ -94,5 +98,9 @@ def generate_launch_description():
             'camera_mode',
             default_value='',   # 空则使用 yaml 内默认值
             description='Which camera mode to launch'),
+        DeclareLaunchArgument(
+            'depth_registration',
+            default_value='false',
+            description='Align depth pixels to the color camera image'),
         OpaqueFunction(function=spawn_camera_nodes),
     ])

@@ -41,8 +41,7 @@ unsigned char FuzzyInferenceEngine::applyFuzzy(
     return nav2_costmap_2d::FREE_SPACE;
   }
 
-  bool cost_calculated = false;
-  unsigned char fuzzy_cost = nav2_costmap_2d::FREE_SPACE;
+  unsigned char maximum_fuzzy_cost = nav2_costmap_2d::FREE_SPACE;
   for (int j = min_j; j < max_j; ++j) {
     unsigned int index = static_cast<unsigned int>(j) * row_stride +
       static_cast<unsigned int>(min_i);
@@ -50,14 +49,11 @@ unsigned char FuzzyInferenceEngine::applyFuzzy(
       if (values[index] == nav2_costmap_2d::FREE_SPACE) {
         continue;
       }
-      if (!cost_calculated) {
-        fuzzy_cost = applyFuzzyCell(values[index]);
-        cost_calculated = true;
-      }
-      values[index] = fuzzy_cost;
+      values[index] = applyFuzzyCell(values[index]);
+      maximum_fuzzy_cost = std::max(maximum_fuzzy_cost, values[index]);
     }
   }
-  return fuzzy_cost;
+  return maximum_fuzzy_cost;
 }
 
 unsigned char FuzzyInferenceEngine::applyFuzzyCell(unsigned char semantic_cost) const

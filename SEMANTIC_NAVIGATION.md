@@ -5,8 +5,9 @@
 本工作在现有 WHEELTEC ROS 2 Humble + Nav2 系统上增加可解释的语义软成本，
 并保留语音导航、点位记录、复合路线和稳定演示行为。
 
-第一阶段只验证“静态语义区域能改变全局规划代价”。语义层默认关闭，因此
-原有启动命令的导航行为不变。启用导航或执行真实路径实验前必须确认现场安全。
+当前已完成静态 mask 基础和动态 RGB-D 风险 mask 的离线可测试数据管线。
+语义层和动态生成节点均默认关闭，因此原有启动命令的导航行为不变。启用相机、
+导航或执行真实路径实验前必须确认现场安全。
 
 ## 对论文与两个上游仓库的判断
 
@@ -48,9 +49,9 @@ in Cluttered Warehouse Spaces` 给出的总体闭环合理：
   - `perception` 用二维 LiDAR 方位近似目标深度，不符合论文的 RGB-D 投影方法；
   - 语义地图重启即丢失，不满足可重复实验要求。
 
-因此第一阶段只记录其接口和集成思路。动态阶段将复用现有
-`ultralytics_ros2` 检测节点，并新建 WHEELTEC 自有的
-“Detection2D + Depth + CameraInfo + TF → OccupancyGrid”管线，而不是复制整仓。
+因此只采用其接口和集成思路。动态阶段复用现有 `ultralytics_ros2` 检测消息，
+并实现 WHEELTEC 自有的“Detection2D + Depth + CameraInfo + TF →
+OccupancyGrid”管线，而不是复制整仓。
 
 ## 第一阶段：静态 mask PoC
 
@@ -81,15 +82,46 @@ source /opt/ros/humble/setup.bash
 source install/setup.bash
 
 colcon build --symlink-install --packages-up-to \
-  semantic_costmap_plugin wheeltec_nav2 largemodel
-colcon test --packages-select semantic_costmap_plugin
+  semantic_costmap_plugin semantic_mask_generator wheeltec_nav2 largemodel
+colcon test --packages-select \
+  semantic_costmap_plugin semantic_mask_generator
 colcon test-result \
   --test-result-base build/semantic_costmap_plugin --all --verbose
+colcon test-result \
+  --test-result-base build/semantic_mask_generator --all --verbose
 ```
 
 这些命令只编译和运行单元测试，不启动底盘、导航、雷达、相机或麦克风。
-当前插件 10 个 CTest 全部通过；其中 9 个行为测试覆盖模糊成本、语义膨胀、
-插件加载，以及“只增加软成本、不清除未知区、不降低致命障碍”的合并边界。
+当前插件 10 个 CTest 全部通过；其中 11 个行为测试覆盖模糊成本、风险强度、
+语义膨胀、静态/话题输入、插件加载，以及“只增加软成本、不清除未知区、
+不降低致命障碍”的合并边界。动态生成包 12 项测试通过，其中 9 项行为测试
+覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减和地图栅格化。
+
+## 第二阶段：动态 RGB-D 风险 mask
+
+`semantic_mask_generator` 的输入和输出为：
+
+- 输入：`/detections`（`vision_msgs/Detection2DArray`）；
+- 输入：配准到彩色图的深度图和 `/camera/color/camera_info`；
+- 输入：`/map` 和检测相机到 `map` 的 TF；
+- 输出：`/semantic_mask`（`nav_msgs/OccupancyGrid`，风险值 `0..100`）。
+
+默认仅处理 `person`，风险值为 100，半径为 1.2 m。观测会按空间距离合并，
+保持 0.8 s 后在 1.2 s 内线性衰减。易碎品货区、固定装卸区等持久化区域仍由
+静态 mask 表达。
+
+生成节点默认 `enabled:=false`，并且默认拒绝未经明确确认的深度输入。
+只有确认深度已经配准到 YOLO 使用的彩色图后，才允许：
+
+```bash
+ros2 launch semantic_mask_generator dynamic_semantic_mask.launch.py \
+  enabled:=true \
+  depth_is_registered:=true
+```
+
+这条命令只启动 mask 生成节点，不会自行启动相机、YOLO、Nav2 或底盘。
+当前 Astra 相机启动参数 `depth_registration` 默认仍为 `false`；开启相机属于
+硬件实验步骤，执行前必须通知现场人员并检查图像、深度尺寸和 `frame_id`。
 
 ## 启用方式（会启动导航，可能使小车运动）
 
@@ -100,6 +132,7 @@ ros2 launch largemodel largemodel_control.launch.py \
   use_nav:=true \
   fixed_command_mode:=true \
   semantic_costmap_enabled:=true \
+  semantic_mask_source:=file \
   semantic_task_urgency:=0 \
   semantic_avoidance_level:=70.0
 ```
@@ -116,21 +149,22 @@ ros2 param set /global_costmap/global_costmap \
 有效模糊成本发布在
 `/global_costmap/semantic_zone/fuzzy_cost_value`（`std_msgs/UInt8`）。
 
+动态 mask 接入导航时使用 `semantic_mask_source:=topic`，该操作会启动导航并
+可能使小车运动，必须先完成静止数据检查。
+
 ## 后续阶段与验收
 
-### 阶段 2：规划器级 A/B（不驱动底盘）
+### 阶段 3：规划器级 A/B（不驱动底盘）
 
 - 相同地图、起点和终点分别关闭/开启语义层；
 - 调用 Nav2 `ComputePathToPose`，不启动 controller；
 - 保存参数、地图和代码提交哈希；
 - 计算 mask crossing ratio、路径长度和语义边界最小距离。
 
-### 阶段 3：动态语义 mask
+动态输入的验收顺序：
 
-- 输入：`vision_msgs/Detection2DArray`、对齐深度、`CameraInfo`、TF；
-- 输出：`/semantic_mask_grid`（`nav_msgs/OccupancyGrid`）；
-- 支持类别半径、置信度阈值、短时缓冲与衰减；
-- costmap layer 从静态文件切换为可更新的话题输入；
+- 先用录制的 RGB-D、检测和 TF 数据验证 `/semantic_mask`；
+- 再对同一起终点分别使用 `file` 和 `topic` 输入；
 - 模型权重继续由 `.gitignore` 排除。
 
 ### 阶段 4：受控实车实验

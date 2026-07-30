@@ -296,7 +296,9 @@ global_costmap:
       mask_layer:
         plugin: "semantic_costmap_plugin::MaskLayer"
         enabled: False
+        mask_source: "file"
         map_yaml_path: "$(find-pkg-share wheeltec_nav2)/map/large_loop_semantic_mask_example.yaml"
+        mask_topic: "/semantic_mask"
         mask_cost_value: 125
         task_urgency: 0
         avoidance_level: 70.0

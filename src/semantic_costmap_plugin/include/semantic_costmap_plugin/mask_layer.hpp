@@ -58,6 +58,10 @@ public:
 
 private:
   bool loadMask();
+  bool validateMask(
+    const nav_msgs::msg::OccupancyGrid & mask,
+    std::string & reason) const;
+  void maskCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr message);
   void computeMaskBounds();
   void applyMask(
     nav2_costmap_2d::Costmap2D & master_grid,
@@ -69,7 +73,9 @@ private:
     const std::vector<rclcpp::Parameter> & parameters);
 
   nav_msgs::msg::OccupancyGrid mask_;
+  std::string mask_source_;
   std::string map_yaml_path_;
+  std::string mask_topic_;
   unsigned char mask_cost_value_;
   bool map_loaded_;
   bool fuzzy_recalculation_needed_;
@@ -85,6 +91,7 @@ private:
   unsigned int update_count_;
   std::unique_ptr<FuzzyInferenceEngine> fuzzy_engine_;
   std::unique_ptr<MaskInflator> inflator_;
+  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr mask_subscription_;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr cost_publisher_;
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_;
 };

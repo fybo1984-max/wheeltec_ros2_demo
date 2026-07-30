@@ -64,6 +64,22 @@ TEST(FuzzyInferenceEngine, OnlySemanticCellsAreChanged)
   EXPECT_EQ(grid[15], nav2_costmap_2d::FREE_SPACE);
 }
 
+TEST(FuzzyInferenceEngine, PreservesRelativeRiskBetweenSemanticCells)
+{
+  semantic_costmap_plugin::FuzzyInferenceEngine engine;
+  engine.setTaskUrgency(0);
+  engine.setAvoidanceLevel(0.0);
+  std::vector<unsigned char> grid(4, nav2_costmap_2d::FREE_SPACE);
+  grid[1] = 50;
+  grid[2] = 150;
+
+  const unsigned char maximum = engine.applyFuzzy(4, grid.data(), 0, 0, 4, 1);
+
+  EXPECT_EQ(grid[1], 50);
+  EXPECT_EQ(grid[2], 150);
+  EXPECT_EQ(maximum, 150);
+}
+
 TEST(FuzzyInferenceEngine, NullAndFreeMapsReturnFreeSpace)
 {
   semantic_costmap_plugin::FuzzyInferenceEngine engine;

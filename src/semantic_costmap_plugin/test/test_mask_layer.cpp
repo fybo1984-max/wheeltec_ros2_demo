@@ -15,9 +15,12 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
 
+#include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav2_costmap_2d/cost_values.hpp"
 #include "nav2_costmap_2d/layered_costmap.hpp"
 #include "nav2_util/lifecycle_node.hpp"
@@ -48,12 +51,17 @@ protected:
     layered_costmap_ = std::make_shared<nav2_costmap_2d::LayeredCostmap>(
       "map", false, false);
     layered_costmap_->resizeMap(10, 10, 0.1, 0.0, 0.0);
+  }
 
+  void initializeLayer(const std::string & source)
+  {
     const std::string name = "mask_layer";
     node_->declare_parameter(name + ".enabled", true);
+    node_->declare_parameter(name + ".mask_source", source);
     node_->declare_parameter(
       name + ".map_yaml_path",
       std::string(TEST_FIXTURE_DIR) + "/test_mask.yaml");
+    node_->declare_parameter(name + ".mask_topic", "/test_semantic_mask");
     node_->declare_parameter(name + ".mask_cost_value", 100);
     node_->declare_parameter(name + ".task_urgency", 0);
     node_->declare_parameter(name + ".avoidance_level", 0.0);
@@ -82,6 +90,7 @@ protected:
 
 TEST_F(MaskLayerTest, AddsSemanticCostWithoutClearingUnknownOrLethalCells)
 {
+  initializeLayer("file");
   auto * master = layered_costmap_->getCostmap();
   std::fill_n(
     master->getCharMap(),
@@ -96,6 +105,54 @@ TEST_F(MaskLayerTest, AddsSemanticCostWithoutClearingUnknownOrLethalCells)
   EXPECT_EQ(master->getCost(4, 4), nav2_costmap_2d::LETHAL_OBSTACLE);
   EXPECT_EQ(master->getCost(5, 4), 100);
   EXPECT_EQ(master->getCost(9, 9), nav2_costmap_2d::FREE_SPACE);
+}
+
+TEST_F(MaskLayerTest, AcceptsRiskWeightedMaskFromTopic)
+{
+  initializeLayer("topic");
+  auto publisher_node = std::make_shared<rclcpp::Node>("mask_publisher_test_node");
+  auto publisher = publisher_node->create_publisher<nav_msgs::msg::OccupancyGrid>(
+    "/test_semantic_mask",
+    rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local());
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(node_->get_node_base_interface());
+  executor.add_node(publisher_node);
+
+  nav_msgs::msg::OccupancyGrid mask;
+  mask.header.frame_id = "map";
+  mask.info.resolution = 0.1;
+  mask.info.width = 10;
+  mask.info.height = 10;
+  mask.info.origin.orientation.w = 1.0;
+  mask.data.assign(100, 0);
+  mask.data[4 * 10 + 5] = 50;
+
+  for (
+    int attempt = 0;
+    attempt < 20 && publisher->get_subscription_count() == 0;
+    ++attempt)
+  {
+    executor.spin_some();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  ASSERT_GT(publisher->get_subscription_count(), 0u);
+  publisher->publish(mask);
+  for (int attempt = 0; attempt < 20; ++attempt) {
+    executor.spin_some();
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+
+  auto * master = layered_costmap_->getCostmap();
+  std::fill_n(
+    master->getCharMap(),
+    master->getSizeInCellsX() * master->getSizeInCellsY(),
+    nav2_costmap_2d::FREE_SPACE);
+  layer_->updateCosts(*master, 0, 0, 10, 10);
+
+  EXPECT_EQ(master->getCost(5, 4), 50);
+  EXPECT_EQ(master->getCost(4, 4), nav2_costmap_2d::FREE_SPACE);
+  executor.remove_node(publisher_node);
+  executor.remove_node(node_->get_node_base_interface());
 }
 
 }  // namespace

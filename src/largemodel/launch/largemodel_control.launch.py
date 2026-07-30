@@ -42,6 +42,7 @@ def generate_launch_description():
     nav_progress_radius = LaunchConfiguration('nav_progress_radius')
     nav_progress_timeout = LaunchConfiguration('nav_progress_timeout')
     semantic_costmap_enabled = LaunchConfiguration('semantic_costmap_enabled')
+    semantic_mask_source = LaunchConfiguration('semantic_mask_source')
     semantic_task_urgency = LaunchConfiguration('semantic_task_urgency')
     semantic_avoidance_level = LaunchConfiguration('semantic_avoidance_level')
     nav_controller_frequency_arg = DeclareLaunchArgument(
@@ -78,6 +79,12 @@ def generate_launch_description():
         'semantic_costmap_enabled',
         default_value='false',
         description='是否启用全局语义软成本层；默认关闭以保持稳定演示行为'
+    )
+    semantic_mask_source_arg = DeclareLaunchArgument(
+        'semantic_mask_source',
+        default_value='file',
+        choices=['file', 'topic'],
+        description='语义mask来源：静态文件file或动态OccupancyGrid话题topic'
     )
     semantic_task_urgency_arg = DeclareLaunchArgument(
         'semantic_task_urgency',
@@ -151,6 +158,8 @@ def generate_launch_description():
             'movement_time_allowance': nav_progress_timeout,
             'global_costmap.global_costmap.ros__parameters.mask_layer.enabled':
                 semantic_costmap_enabled,
+            'global_costmap.global_costmap.ros__parameters.mask_layer.mask_source':
+                semantic_mask_source,
             'global_costmap.global_costmap.ros__parameters.mask_layer.task_urgency':
                 semantic_task_urgency,
             'global_costmap.global_costmap.ros__parameters.mask_layer.avoidance_level':
@@ -227,6 +236,7 @@ def generate_launch_description():
         nav_progress_radius_arg,
         nav_progress_timeout_arg,
         semantic_costmap_enabled_arg,
+        semantic_mask_source_arg,
         semantic_task_urgency_arg,
         semantic_avoidance_level_arg,
         model_server,          #启动模型服务节点

@@ -55,7 +55,9 @@ MaskLayer::~MaskLayer()
 void MaskLayer::onInitialize()
 {
   declareParameter("enabled", rclcpp::ParameterValue(false));
+  declareParameter("mask_source", rclcpp::ParameterValue("file"));
   declareParameter("map_yaml_path", rclcpp::ParameterValue(""));
+  declareParameter("mask_topic", rclcpp::ParameterValue("/semantic_mask"));
   declareParameter("mask_cost_value", rclcpp::ParameterValue(125));
   declareParameter("task_urgency", rclcpp::ParameterValue(0));
   declareParameter("avoidance_level", rclcpp::ParameterValue(70.0));
@@ -69,7 +71,9 @@ void MaskLayer::onInitialize()
   }
 
   enabled_ = node->get_parameter(name_ + ".enabled").as_bool();
+  mask_source_ = node->get_parameter(name_ + ".mask_source").as_string();
   map_yaml_path_ = node->get_parameter(name_ + ".map_yaml_path").as_string();
+  mask_topic_ = node->get_parameter(name_ + ".mask_topic").as_string();
   const auto mask_cost = node->get_parameter(name_ + ".mask_cost_value").as_int();
   const auto task_urgency = node->get_parameter(name_ + ".task_urgency").as_int();
   const double avoidance_level =
@@ -81,8 +85,16 @@ void MaskLayer::onInitialize()
   const bool inflate_unknown =
     node->get_parameter(name_ + ".inflate_unknown").as_bool();
 
-  if (map_yaml_path_.empty()) {
-    throw std::runtime_error("mask_layer.map_yaml_path must not be empty");
+  if (mask_source_ != "file" && mask_source_ != "topic") {
+    throw std::runtime_error("mask_layer.mask_source must be 'file' or 'topic'");
+  }
+  if (mask_source_ == "file" && map_yaml_path_.empty()) {
+    throw std::runtime_error(
+            "mask_layer.map_yaml_path must not be empty for file source");
+  }
+  if (mask_source_ == "topic" && mask_topic_.empty()) {
+    throw std::runtime_error(
+            "mask_layer.mask_topic must not be empty for topic source");
   }
   if (mask_cost < 1 || mask_cost > nav2_costmap_2d::MAX_NON_OBSTACLE) {
     throw std::runtime_error("mask_layer.mask_cost_value must be in [1, 252]");
@@ -102,10 +114,12 @@ void MaskLayer::onInitialize()
   task_urgency_ = static_cast<int>(task_urgency);
   avoidance_level_ = avoidance_level;
 
-  if (!loadMask()) {
-    throw std::runtime_error("failed to load semantic mask: " + map_yaml_path_);
+  if (mask_source_ == "file") {
+    if (!loadMask()) {
+      throw std::runtime_error("failed to load semantic mask: " + map_yaml_path_);
+    }
+    inverse_mask_resolution_ = 1.0 / mask_.info.resolution;
   }
-  inverse_mask_resolution_ = 1.0 / mask_.info.resolution;
 
   matchSize();
   auto * master = layered_costmap_->getCostmap();
@@ -126,13 +140,28 @@ void MaskLayer::onInitialize()
       std::placeholders::_1));
   cost_publisher_ = node->create_publisher<std_msgs::msg::UInt8>(
     "semantic_zone/fuzzy_cost_value", rclcpp::QoS(10));
+  if (mask_source_ == "topic") {
+    auto mask_qos = rclcpp::QoS(rclcpp::KeepLast(1));
+    mask_qos.reliable();
+    mask_qos.transient_local();
+    mask_subscription_ = node->create_subscription<nav_msgs::msg::OccupancyGrid>(
+      mask_topic_, mask_qos,
+      std::bind(&MaskLayer::maskCallback, this, std::placeholders::_1));
+  }
 
   current_ = true;
-  RCLCPP_INFO(
-    logger_,
-    "Semantic mask layer loaded %ux%u mask from %s (enabled=%s)",
-    mask_.info.width, mask_.info.height, map_yaml_path_.c_str(),
-    enabled_ ? "true" : "false");
+  if (mask_source_ == "file") {
+    RCLCPP_INFO(
+      logger_,
+      "Semantic mask layer loaded %ux%u mask from %s (enabled=%s)",
+      mask_.info.width, mask_.info.height, map_yaml_path_.c_str(),
+      enabled_ ? "true" : "false");
+  } else {
+    RCLCPP_INFO(
+      logger_,
+      "Semantic mask layer waiting for OccupancyGrid on %s (enabled=%s)",
+      mask_topic_.c_str(), enabled_ ? "true" : "false");
+  }
 }
 
 void MaskLayer::matchSize()
@@ -143,6 +172,7 @@ void MaskLayer::matchSize()
 
 void MaskLayer::reset()
 {
+  std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*getMutex());
   resetMaps();
   mask_bounds_cached_ = false;
   current_ = true;
@@ -196,6 +226,61 @@ bool MaskLayer::loadMask()
   return true;
 }
 
+bool MaskLayer::validateMask(
+  const nav_msgs::msg::OccupancyGrid & mask,
+  std::string & reason) const
+{
+  const std::size_t expected_size =
+    static_cast<std::size_t>(mask.info.width) * mask.info.height;
+  if (
+    mask.info.resolution <= 0.0 ||
+    mask.info.width == 0 ||
+    mask.info.height == 0 ||
+    mask.data.size() != expected_size)
+  {
+    reason = "metadata or data size is invalid";
+    return false;
+  }
+
+  const auto & orientation = mask.info.origin.orientation;
+  constexpr double tolerance = 1e-6;
+  if (
+    std::abs(orientation.x) > tolerance ||
+    std::abs(orientation.y) > tolerance ||
+    std::abs(orientation.z) > tolerance ||
+    std::abs(std::abs(orientation.w) - 1.0) > tolerance)
+  {
+    reason = "rotated masks are not supported";
+    return false;
+  }
+  if (mask.header.frame_id != layered_costmap_->getGlobalFrameID()) {
+    reason =
+      "frame_id '" + mask.header.frame_id + "' does not match global frame '" +
+      layered_costmap_->getGlobalFrameID() + "'";
+    return false;
+  }
+  return true;
+}
+
+void MaskLayer::maskCallback(
+  const nav_msgs::msg::OccupancyGrid::SharedPtr message)
+{
+  std::string reason;
+  if (!validateMask(*message, reason)) {
+    RCLCPP_ERROR(
+      logger_, "Rejected semantic mask from %s: %s",
+      mask_topic_.c_str(), reason.c_str());
+    return;
+  }
+
+  std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*getMutex());
+  mask_ = *message;
+  inverse_mask_resolution_ = 1.0 / mask_.info.resolution;
+  map_loaded_ = true;
+  mask_bounds_cached_ = false;
+  current_ = true;
+}
+
 void MaskLayer::updateBounds(
   double,
   double,
@@ -205,6 +290,7 @@ void MaskLayer::updateBounds(
   double * max_x,
   double * max_y)
 {
+  std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*getMutex());
   if (!enabled_ || !map_loaded_) {
     return;
   }
@@ -222,6 +308,7 @@ void MaskLayer::updateCosts(
   int max_i,
   int max_j)
 {
+  std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*getMutex());
   if (!enabled_ || !map_loaded_) {
     return;
   }
@@ -315,8 +402,16 @@ void MaskLayer::applyMask(
         const auto mask_index =
           static_cast<std::size_t>(mask_j) * mask_.info.width +
           static_cast<std::size_t>(mask_i);
-        if (mask_.data[mask_index] >= 65) {
-          layer_cost = mask_cost_value_;
+        const int risk_value = static_cast<int>(mask_.data[mask_index]);
+        if (risk_value > 0) {
+          const double scaled_cost =
+            static_cast<double>(mask_cost_value_) *
+            std::min(risk_value, 100) / 100.0;
+          layer_cost = static_cast<unsigned char>(
+            std::clamp(
+              static_cast<int>(std::lround(scaled_cost)),
+              1,
+              static_cast<int>(nav2_costmap_2d::MAX_NON_OBSTACLE)));
         }
       }
       costmap_[getIndex(i, j)] = layer_cost;
