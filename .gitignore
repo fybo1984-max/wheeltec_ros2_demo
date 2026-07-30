@@ -1,0 +1,70 @@
+# ROS 2 / colcon generated directories contain absolute workspace paths.
+/build/
+/install/
+/log/
+
+# Codex/local workspace metadata.
+/.agents/
+/.codex/
+
+# Runtime output and caches.
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.cache/
+**/*.log
+**/*.tmp
+**/*.bak
+**/*~
+/msc/
+
+# Runtime recordings and generated SLAM databases.
+**/*.bag
+**/*.bag.active
+**/*.db3
+**/*.mcap
+**/*.pcm
+
+# Large vendor/model/mesh binaries. They stay on the robot and are described
+# in BACKUP_AND_RECOVERY.md; they are not required to roll back our source edits.
+**/*.a
+**/*.bin
+**/*.eap
+**/*.gif
+**/*.jet
+**/*.odg
+**/*.pcd
+**/*.pdf
+**/*.ply
+**/*.pt
+**/*.pth
+**/*.so
+**/*.so.*
+**/*.stl
+**/*.tar
+**/*.tar.gz
+**/*.vsdx
+**/*.wav
+**/*.[dD][aA][eE]
+**/*.[sS][tT][lL]
+
+# Private credentials and per-device cloud configuration.
+/.env
+/.env.*
+**/*.pem
+**/*.key
+/src/largemodel/config/model_config.yaml
+/src/largemodel/resources_file/qwen3-vl-2d.py
+/src/ollama_ros_chat-ros2/ollama_ros_chat/config/ollama_params.yaml
+/src/tts_make_ros2/config/tts_params.yaml
+/src/wheeltec_mic_aiui/AIUI/cfg/aiui.cfg
+/src/wheeltec_mic_aiui/AIUI/assets/vtn/vtn.ini
+
+# AIUI runtime cache generated for the current account/device.
+/src/wheeltec_mic_aiui/AIUI/msc/
+
+# These are independent upstream Git repositories. Their pinned revisions are
+# recorded in DEPENDENCIES_SNAPSHOT.md instead of embedding broken nested repos.
+/src/depend/serial_ros2/
+/src/wheeltec_robot_slam/orb_slam_2_ros/orb_slam_2_ros/

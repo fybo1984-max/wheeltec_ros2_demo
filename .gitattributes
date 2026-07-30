@@ -1,0 +1,9 @@
+# Preserve the vendor workspace byte-for-byte. Some upstream packages use CRLF
+# while others use LF; automatic conversion can make restored vendor sources
+# differ from the version that was tested on the robot.
+* -text
+
+*.jpg binary
+*.jpeg binary
+*.pgm binary
+*.png binary
