@@ -35,6 +35,8 @@ setup(
     entry_points={
         'console_scripts': [
             'semantic_planning_ab = semantic_planning_experiments.runner:main',
+            'semantic_planning_summary = '
+            'semantic_planning_experiments.report_summary:main',
             'synthetic_rgbd_source = '
             'semantic_planning_experiments.synthetic_rgbd:main',
         ],
