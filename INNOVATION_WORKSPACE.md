@@ -44,6 +44,16 @@ ros2 launch largemodel largemodel_control.launch.py \
 
 1. 不要在同一个终端先后 `source` 两套工作空间。需要切换时关闭该终端，
    再打开新终端。
+   `source /opt/ros/humble/setup.bash` 只加载 ROS 2 基础环境，不会清除当前
+   终端里已经加载的 overlay。若终端先前 source 过稳定工作空间，再 source
+   `/opt/ros/humble/setup.bash` 仍然会残留稳定路径。编译前可检查：
+
+   ```bash
+   printenv AMENT_PREFIX_PATH | tr ':' '\n' | \
+     grep -F '/home/wheeltec/wheeltec_ros2/install'
+   ```
+
+   有输出时必须换全新终端，不要在该终端编译创新工作空间。
 2. 不要同时启动两套系统，它们会争用底盘串口、麦克风、雷达、相机和相同
    ROS 话题。
 3. 老师需要演示时，停止创新版本，打开新终端并按“启动稳定演示”运行。
@@ -70,6 +80,11 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 固定语音指令和点位持久化测试：81 项通过。
 - 语义 costmap 插件：10 个 CTest 全部通过，其中 11 个行为测试通过。
 - 动态语义 mask：12 项测试通过，其中 9 项投影、衰减和栅格化行为测试通过。
+- 规划器级 A/B 实验包：8 项测试通过，其中 5 项地图坐标与路径指标行为测试
+  通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
+- 默认模板路线的两次离线规划得到完全相同的路径几何：基线穿越语义区约
+  7.50 m，启用语义层后穿越为 0，路径增加约 3.26 m，语义边界最小间距约
+  0.64 m。该数字只是工具链验证，不是论文正式实验结果。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。

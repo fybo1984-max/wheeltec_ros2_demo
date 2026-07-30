@@ -82,13 +82,17 @@ source /opt/ros/humble/setup.bash
 source install/setup.bash
 
 colcon build --symlink-install --packages-up-to \
-  semantic_costmap_plugin semantic_mask_generator wheeltec_nav2 largemodel
+  semantic_costmap_plugin semantic_mask_generator \
+  semantic_planning_experiments wheeltec_nav2 largemodel
 colcon test --packages-select \
-  semantic_costmap_plugin semantic_mask_generator
+  semantic_costmap_plugin semantic_mask_generator \
+  semantic_planning_experiments
 colcon test-result \
   --test-result-base build/semantic_costmap_plugin --all --verbose
 colcon test-result \
   --test-result-base build/semantic_mask_generator --all --verbose
+colcon test-result \
+  --test-result-base build/semantic_planning_experiments --all --verbose
 ```
 
 这些命令只编译和运行单元测试，不启动底盘、导航、雷达、相机或麦克风。
@@ -96,6 +100,8 @@ colcon test-result \
 语义膨胀、静态/话题输入、插件加载，以及“只增加软成本、不清除未知区、
 不降低致命障碍”的合并边界。动态生成包 12 项测试通过，其中 9 项行为测试
 覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减和地图栅格化。
+规划器实验包 8 项测试通过，其中 5 项行为测试覆盖 Nav2 PGM 坐标转换、
+穿越距离/比例、语义边界间距、指标差值和输入哈希。
 
 ## 第二阶段：动态 RGB-D 风险 mask
 
@@ -152,14 +158,34 @@ ros2 param set /global_costmap/global_costmap \
 动态 mask 接入导航时使用 `semantic_mask_source:=topic`，该操作会启动导航并
 可能使小车运动，必须先完成静止数据检查。
 
+## 第三阶段：规划器级 A/B（已完成，不驱动底盘）
+
+`semantic_planning_experiments` 提供独立 launch，仅启动 `map_server`、
+`planner_server`、生命周期管理器和静态实验 TF。它不包含 controller、BT、
+AMCL、传感器或底盘节点，不发布速度命令。实验默认在仅本机可见的独立
+ROS domain 73 中运行。
+
+```bash
+ros2 launch semantic_planning_experiments planner_ab.launch.py \
+  output_path:=/tmp/semantic_planning_ab.json
+```
+
+同一规划进程先关闭、再开启语义层，并在两次请求间清空和刷新全局 costmap。
+实验专用配置关闭 `cache_obstacle_heuristic`，避免第二次规划复用基线启发式。
+JSON 保存完整路径、规划耗时、路径长度、mask crossing length/ratio、语义
+边界最小距离，以及代码版本和地图、mask、规划参数文件的 SHA-256。
+
+默认模板路线 `(6.0, 0.0) → (20.0, 0.0)` 已连续运行两次，路径几何完全一致：
+
+- 基线：路径约 14.01 m，语义区穿越约 7.50 m，穿越比例约 53.52%；
+- 语义：路径约 17.27 m，语义区穿越为 0，最小语义边界间距约 0.64 m；
+- 差值：路径增加约 3.26 m。
+
+这些数字验证了“软成本在存在替代路径时改变规划”的工具链目标。示例 mask
+尚未经过现场区域标定，结果不能直接作为论文正式对比数据。正式采集应将输出
+写到仓库外部的实验数据目录，并在代码提交后重新运行，以获得干净提交哈希。
+
 ## 后续阶段与验收
-
-### 阶段 3：规划器级 A/B（不驱动底盘）
-
-- 相同地图、起点和终点分别关闭/开启语义层；
-- 调用 Nav2 `ComputePathToPose`，不启动 controller；
-- 保存参数、地图和代码提交哈希；
-- 计算 mask crossing ratio、路径长度和语义边界最小距离。
 
 动态输入的验收顺序：
 
