@@ -45,6 +45,8 @@ def generate_launch_description():
     )
     domain_id = LaunchConfiguration('domain_id')
     output_path = LaunchConfiguration('output_path')
+    task_urgency = LaunchConfiguration('task_urgency')
+    avoidance_level = LaunchConfiguration('avoidance_level')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -56,6 +58,16 @@ def generate_launch_description():
             'output_path',
             default_value='/tmp/semantic_generator_planning_ab.json',
             description='Controller-free generator integration report.',
+        ),
+        DeclareLaunchArgument(
+            'task_urgency',
+            default_value='0',
+            description='Semantic layer task urgency in [0, 10].',
+        ),
+        DeclareLaunchArgument(
+            'avoidance_level',
+            default_value='70.0',
+            description='Semantic layer avoidance level in [0, 100].',
         ),
         SetEnvironmentVariable('ROS_DOMAIN_ID', domain_id),
         SetEnvironmentVariable('ROS_LOCALHOST_ONLY', '1'),
@@ -105,6 +117,8 @@ def generate_launch_description():
                 'topic_input_mode': 'external',
                 'mask_producer_config': generator_config,
                 'output_path': output_path,
+                'task_urgency': task_urgency,
+                'avoidance_level': avoidance_level,
             }.items(),
         ),
     ])

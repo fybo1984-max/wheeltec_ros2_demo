@@ -92,6 +92,8 @@ def generate_launch_description():
     goal_y = LaunchConfiguration('goal_y')
     goal_yaw = LaunchConfiguration('goal_yaw')
     settle_seconds = LaunchConfiguration('settle_seconds')
+    task_urgency = LaunchConfiguration('task_urgency')
+    avoidance_level = LaunchConfiguration('avoidance_level')
     domain_id = LaunchConfiguration('domain_id')
 
     configured_parameters = RewrittenYaml(
@@ -169,6 +171,8 @@ def generate_launch_description():
             'goal_y': goal_y,
             'goal_yaw': goal_yaw,
             'settle_seconds': settle_seconds,
+            'task_urgency': task_urgency,
+            'avoidance_level': avoidance_level,
             'code_revision': _workspace_revision(experiment_share),
         }],
     )
@@ -220,6 +224,16 @@ def generate_launch_description():
         DeclareLaunchArgument('goal_y', default_value='0.0'),
         DeclareLaunchArgument('goal_yaw', default_value='0.0'),
         DeclareLaunchArgument('settle_seconds', default_value='1.5'),
+        DeclareLaunchArgument(
+            'task_urgency',
+            default_value='0',
+            description='Semantic layer task urgency in [0, 10].',
+        ),
+        DeclareLaunchArgument(
+            'avoidance_level',
+            default_value='70.0',
+            description='Semantic layer avoidance level in [0, 100].',
+        ),
         map_server,
         planner_server,
         lifecycle_manager,

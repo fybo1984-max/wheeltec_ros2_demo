@@ -231,6 +231,40 @@ JSON 同时记录动态 mask 的尺寸、占用数量、质心、边界、生成
 路径改变”的软件链路。合成数据不证明真实相机标定、YOLO 检出率或现场时延，
 不能直接作为论文正式实验数据。
 
+### 软成本参数敏感性
+
+同一合成输入可显式设置任务紧急度和避让等级，参数会通过 ROS 参数服务写入
+真实 costmap layer，并记录在 JSON 中：
+
+```bash
+# 安全优先
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  domain_id:=76 task_urgency:=0 avoidance_level:=100.0 \
+  output_path:=/tmp/semantic_sweep_safety.json
+
+# 均衡
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  domain_id:=77 task_urgency:=5 avoidance_level:=70.0 \
+  output_path:=/tmp/semantic_sweep_balanced.json
+
+# 紧急通行
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  domain_id:=78 task_urgency:=10 avoidance_level:=0.0 \
+  output_path:=/tmp/semantic_sweep_urgent.json
+```
+
+当前单次确定性对照结果：
+
+| 模式 | `task_urgency` | `avoidance_level` | 路径长度 | 风险区穿越 | 最小间距 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 安全优先 | 0 | 100 | 17.97 m | 0 m | 1.11 m |
+| 均衡 | 5 | 70 | 17.92 m | 0 m | 1.11 m |
+| 紧急通行 | 10 | 0 | 14.01 m | 2.35 m | 0 m |
+
+结果证明同一 `person` 风险 mask 可随任务策略从绕行切换为穿越，语义层仍是
+软成本而非硬障碍。当前表格是软件链路单次验证；论文参数结论必须在固定提交上
+重复多次并报告分布，不能只使用该表。
+
 ## 后续阶段与验收
 
 动态输入后续验收顺序：

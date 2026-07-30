@@ -55,6 +55,16 @@ ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
 This launch uses ROS domain 75 and still does not start a controller, BT
 navigator, localization, physical camera, detector, or robot-base node.
 
+Override `task_urgency` (`0..10`) and `avoidance_level` (`0..100`) to verify
+the soft-cost policy. The runner applies both values through the costmap
+parameter service before each condition and stores them in the report:
+
+```bash
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  domain_id:=78 task_urgency:=10 avoidance_level:=0.0 \
+  output_path:=/tmp/semantic_sweep_urgent.json
+```
+
 Use `domain_id:=<unused ID>` if 73 is already in use by another local test.
 Hybrid-A* builds its lookup table during startup, so the action client allows
 up to 60 seconds for lifecycle activation on Jetson-class hardware.
@@ -68,7 +78,8 @@ The JSON report includes:
 
 - code revision (with `-dirty` when applicable) and map/mask/planner-config
   SHA-256 digests;
-- explicit start, goal, planner ID, mask source, topic mode, and topic QoS;
+- explicit start, goal, planner ID, mask source, topic mode, topic QoS, task
+  urgency, and avoidance level;
 - generated mask cell count, map-coordinate centroid and occupied bounds;
 - complete baseline and semantic paths;
 - planner time, path length, semantic crossing length and ratio;

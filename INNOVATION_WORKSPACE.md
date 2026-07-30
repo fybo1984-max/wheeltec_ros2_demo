@@ -92,6 +92,9 @@ ros2 launch largemodel largemodel_control.launch.py \
   `semantic_mask_generator` 生成 1806 个风险栅格，再由 topic 送入 Nav2。
   基线路径穿越动态风险区约 2.35 m，启用语义层后穿越为 0，最小间距约
   1.11 m。全程未启动 controller、底盘或硬件节点。
+- 动态风险区参数敏感性验证通过：安全优先和均衡参数均完全绕行；紧急度最高、
+  避让度最低时恢复约 14.01 m 的短路径并穿越约 2.35 m 风险区，验证该区域
+  保持为可调软成本而非硬障碍。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。

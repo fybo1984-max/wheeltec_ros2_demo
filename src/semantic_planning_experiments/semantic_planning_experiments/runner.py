@@ -72,6 +72,8 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('planner_config_path', '')
         self.declare_parameter('output_path', '/tmp/semantic_planning_ab.json')
         self.declare_parameter('planner_id', 'GridBased')
+        self.declare_parameter('task_urgency', 0)
+        self.declare_parameter('avoidance_level', 70.0)
         self.declare_parameter('frame_id', 'map')
         self.declare_parameter('start_x', 6.0)
         self.declare_parameter('start_y', 0.0)
@@ -147,13 +149,21 @@ class SemanticPlanningAB(Node):
             raise RuntimeError(f'{description} failed: {error}')
         return future.result()
 
-    def _set_mask_enabled(self, enabled: bool) -> None:
+    def _configure_mask_layer(self, enabled: bool) -> None:
         request = SetParameters.Request()
         request.parameters = [
             Parameter(
                 'mask_layer.enabled',
                 value=enabled,
-            ).to_parameter_msg()
+            ).to_parameter_msg(),
+            Parameter(
+                'mask_layer.task_urgency',
+                value=int(self.get_parameter('task_urgency').value),
+            ).to_parameter_msg(),
+            Parameter(
+                'mask_layer.avoidance_level',
+                value=float(self.get_parameter('avoidance_level').value),
+            ).to_parameter_msg(),
         ]
         timeout = float(
             self.get_parameter('service_timeout_seconds').value
@@ -163,8 +173,14 @@ class SemanticPlanningAB(Node):
             timeout,
             'mask parameter update',
         )
-        if len(response.results) != 1 or not response.results[0].successful:
-            reason = response.results[0].reason if response.results else ''
+        if (
+            len(response.results) != len(request.parameters)
+            or any(not result.successful for result in response.results)
+        ):
+            reason = '; '.join(
+                result.reason for result in response.results
+                if not result.successful and result.reason
+            )
             raise RuntimeError(f'mask parameter update was rejected: {reason}')
 
     def _clear_costmap(self) -> None:
@@ -328,9 +344,16 @@ class SemanticPlanningAB(Node):
 
     def _plan_condition(self, name: str, enabled: bool, mask) -> dict:
         self.get_logger().info(
-            f'planning condition={name}, mask_layer.enabled={enabled}'
+            'planning condition=%s, mask_layer.enabled=%s, '
+            'task_urgency=%d, avoidance_level=%.1f'
+            % (
+                name,
+                enabled,
+                int(self.get_parameter('task_urgency').value),
+                float(self.get_parameter('avoidance_level').value),
+            )
         )
-        self._set_mask_enabled(enabled)
+        self._configure_mask_layer(enabled)
         self._clear_costmap()
         time.sleep(float(self.get_parameter('settle_seconds').value))
         planned = self._compute_path()
@@ -365,6 +388,10 @@ class SemanticPlanningAB(Node):
         producer_config_value = str(
             self.get_parameter('mask_producer_config_path').value
         ).strip()
+        task_urgency = int(self.get_parameter('task_urgency').value)
+        avoidance_level = float(
+            self.get_parameter('avoidance_level').value
+        )
         if not map_yaml_value:
             raise ValueError('map_yaml_path must not be empty')
         if not planner_config_value:
@@ -373,6 +400,10 @@ class SemanticPlanningAB(Node):
             raise ValueError("mask_source must be 'file' or 'topic'")
         if topic_input_mode not in ('fixture', 'external'):
             raise ValueError("topic_input_mode must be 'fixture' or 'external'")
+        if not 0 <= task_urgency <= 10:
+            raise ValueError('task_urgency must be in [0, 10]')
+        if not 0.0 <= avoidance_level <= 100.0:
+            raise ValueError('avoidance_level must be in [0, 100]')
         if mask_source == 'file' or topic_input_mode == 'fixture':
             if not mask_yaml_value:
                 raise ValueError('mask_yaml_path must not be empty')
@@ -433,6 +464,10 @@ class SemanticPlanningAB(Node):
                 'planner_config_path': str(planner_config_path),
                 'planner_config_sha256': sha256_file(planner_config_path),
                 'planner_id': self.get_parameter('planner_id').value,
+                'semantic_layer_parameters': {
+                    'task_urgency': task_urgency,
+                    'avoidance_level': avoidance_level,
+                },
                 'mask_source': mask_source,
                 'topic_input_mode': (
                     topic_input_mode if mask_source == 'topic' else None
