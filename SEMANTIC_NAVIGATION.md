@@ -100,7 +100,7 @@ colcon test-result \
 语义膨胀、静态/话题输入、插件加载，以及“只增加软成本、不清除未知区、
 不降低致命障碍”的合并边界。动态生成包 12 项测试通过，其中 9 项行为测试
 覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减和地图栅格化。
-规划器实验包 8 项测试通过，其中 5 项行为测试覆盖 Nav2 PGM 坐标转换、
+规划器实验包 9 项测试通过，其中 6 项行为测试覆盖 Nav2 PGM 坐标转换、
 穿越距离/比例、语义边界间距、指标差值和输入哈希。
 
 ## 第二阶段：动态 RGB-D 风险 mask
@@ -184,6 +184,24 @@ JSON 保存完整路径、规划耗时、路径长度、mask crossing length/rat
 这些数字验证了“软成本在存在替代路径时改变规划”的工具链目标。示例 mask
 尚未经过现场区域标定，结果不能直接作为论文正式对比数据。正式采集应将输出
 写到仓库外部的实验数据目录，并在代码提交后重新运行，以获得干净提交哈希。
+
+### 动态 topic 输入等价性
+
+同一实验也可把 mask 作为在线 `OccupancyGrid` 发布，而不是由插件直接读取
+YAML：
+
+```bash
+ros2 launch semantic_planning_experiments planner_ab.launch.py \
+  mask_source:=topic \
+  domain_id:=74 \
+  output_path:=/tmp/semantic_planning_ab_topic.json
+```
+
+实验客户端等待 `/semantic_mask` 订阅建立后，以 reliable、
+transient-local、depth 1 QoS 发布 0/100 风险栅格。当前模板的 file 与 topic
+两种模式均已完成无控制器规划验证：基线路径逐点一致、语义路径逐点一致，除
+规划耗时外的全部指标完全一致。这证明插件的动态话题输入与静态输入在相同 mask
+下语义等价，但尚未证明真实 RGB-D 检测链路的精度或时延。
 
 ## 后续阶段与验收
 

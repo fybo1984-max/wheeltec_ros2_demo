@@ -21,6 +21,7 @@ from semantic_planning_experiments.metrics import (
     MaskGrid,
     load_mask_grid,
     metric_delta,
+    occupancy_data,
     path_metrics,
     sha256_file,
 )
@@ -74,6 +75,23 @@ def test_path_metrics_distinguishes_crossing_and_detour(tmp_path: Path):
     assert crossing['minimum_semantic_clearance_m'] == 0.0
     assert detour['semantic_crossing_length_m'] == 0.0
     assert detour['minimum_semantic_clearance_m'] > 0.0
+
+
+def test_occupancy_data_flips_image_rows_into_ros_grid_order(tmp_path: Path):
+    occupied = np.asarray([
+        [False, True, False],
+        [True, False, False],
+    ])
+    mask = MaskGrid(
+        occupied=occupied,
+        resolution=1.0,
+        origin_x=0.0,
+        origin_y=0.0,
+        yaml_path=tmp_path / 'mask.yaml',
+        image_path=tmp_path / 'mask.pgm',
+    )
+
+    assert occupancy_data(mask) == [100, 0, 0, 0, 100, 0]
 
 
 def test_empty_mask_has_no_clearance_value(tmp_path: Path):

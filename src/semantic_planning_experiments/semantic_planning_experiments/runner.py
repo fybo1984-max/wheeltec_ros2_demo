@@ -26,15 +26,18 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import ComputePathToPose
 from nav2_msgs.srv import ClearEntireCostmap, ManageLifecycleNodes
+from nav_msgs.msg import OccupancyGrid
 import rclpy
 from rcl_interfaces.srv import SetParameters
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.parameter import Parameter
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 
 from semantic_planning_experiments.metrics import (
     load_mask_grid,
     metric_delta,
+    occupancy_data,
     path_metrics,
     sha256_file,
 )
@@ -59,6 +62,8 @@ class SemanticPlanningAB(Node):
             '/lifecycle_manager_semantic_planning/manage_nodes',
         )
         self.declare_parameter('mask_yaml_path', '')
+        self.declare_parameter('mask_source', 'file')
+        self.declare_parameter('mask_topic', '/semantic_mask')
         self.declare_parameter('map_yaml_path', '')
         self.declare_parameter('planner_config_path', '')
         self.declare_parameter('output_path', '/tmp/semantic_planning_ab.json')
@@ -71,6 +76,7 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('goal_y', 0.0)
         self.declare_parameter('goal_yaw', 0.0)
         self.declare_parameter('settle_seconds', 1.5)
+        self.declare_parameter('mask_publish_timeout_seconds', 10.0)
         self.declare_parameter('service_timeout_seconds', 60.0)
         self.declare_parameter('planning_timeout_seconds', 30.0)
         self.declare_parameter('code_revision', 'unknown')
@@ -95,6 +101,16 @@ class SemanticPlanningAB(Node):
         self._lifecycle_client = self.create_client(
             ManageLifecycleNodes, lifecycle_service
         )
+        self._mask_publisher = None
+        if self.get_parameter('mask_source').value == 'topic':
+            mask_qos = QoSProfile(depth=1)
+            mask_qos.reliability = ReliabilityPolicy.RELIABLE
+            mask_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
+            self._mask_publisher = self.create_publisher(
+                OccupancyGrid,
+                self.get_parameter('mask_topic').value,
+                mask_qos,
+            )
 
     def _wait_for_interfaces(self) -> None:
         timeout = float(
@@ -161,6 +177,39 @@ class SemanticPlanningAB(Node):
         )
         if not response.success:
             raise RuntimeError('lifecycle manager rejected managed node shutdown')
+
+    def _publish_topic_mask(self, mask) -> None:
+        if self._mask_publisher is None:
+            raise RuntimeError('topic mask publisher was not initialized')
+        timeout = float(
+            self.get_parameter('mask_publish_timeout_seconds').value
+        )
+        deadline = time.monotonic() + timeout
+        while self._mask_publisher.get_subscription_count() < 1:
+            if time.monotonic() >= deadline:
+                raise TimeoutError('semantic mask topic has no subscriber')
+            rclpy.spin_once(self, timeout_sec=0.1)
+
+        message = OccupancyGrid()
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.header.frame_id = self.get_parameter('frame_id').value
+        message.info.resolution = mask.resolution
+        message.info.width = mask.width
+        message.info.height = mask.height
+        message.info.origin.position.x = mask.origin_x
+        message.info.origin.position.y = mask.origin_y
+        message.info.origin.orientation.w = 1.0
+        message.data = occupancy_data(mask)
+        self._mask_publisher.publish(message)
+        self.get_logger().info(
+            'published %dx%d transient semantic mask on %s'
+            % (
+                mask.width,
+                mask.height,
+                self.get_parameter('mask_topic').value,
+            )
+        )
+        time.sleep(float(self.get_parameter('settle_seconds').value))
 
     def _pose(self, prefix: str) -> PoseStamped:
         pose = PoseStamped()
@@ -247,12 +296,17 @@ class SemanticPlanningAB(Node):
         planner_config_value = str(
             self.get_parameter('planner_config_path').value
         ).strip()
+        mask_source = str(
+            self.get_parameter('mask_source').value
+        ).strip()
         if not mask_yaml_value:
             raise ValueError('mask_yaml_path must not be empty')
         if not map_yaml_value:
             raise ValueError('map_yaml_path must not be empty')
         if not planner_config_value:
             raise ValueError('planner_config_path must not be empty')
+        if mask_source not in ('file', 'topic'):
+            raise ValueError("mask_source must be 'file' or 'topic'")
         mask_yaml_path = Path(mask_yaml_value)
         map_yaml_path = Path(map_yaml_value).expanduser().resolve()
         planner_config_path = Path(
@@ -261,6 +315,8 @@ class SemanticPlanningAB(Node):
         mask = load_mask_grid(mask_yaml_path)
 
         self._wait_for_interfaces()
+        if mask_source == 'topic':
+            self._publish_topic_mask(mask)
         baseline = self._plan_condition('baseline', False, mask)
         semantic = self._plan_condition('semantic', True, mask)
         start = self._pose('start').pose
@@ -288,6 +344,19 @@ class SemanticPlanningAB(Node):
                 'planner_config_path': str(planner_config_path),
                 'planner_config_sha256': sha256_file(planner_config_path),
                 'planner_id': self.get_parameter('planner_id').value,
+                'mask_source': mask_source,
+                'mask_topic': (
+                    self.get_parameter('mask_topic').value
+                    if mask_source == 'topic' else None
+                ),
+                'mask_topic_qos': (
+                    {
+                        'reliability': 'reliable',
+                        'durability': 'transient_local',
+                        'depth': 1,
+                    }
+                    if mask_source == 'topic' else None
+                ),
                 'start': {
                     'x': start.position.x,
                     'y': start.position.y,

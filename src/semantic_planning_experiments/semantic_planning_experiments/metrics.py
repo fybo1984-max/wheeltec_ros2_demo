@@ -138,6 +138,12 @@ def load_mask_grid(yaml_path: Path) -> MaskGrid:
     )
 
 
+def occupancy_data(mask: MaskGrid) -> list[int]:
+    """Return a ROS OccupancyGrid data array for a trinary semantic mask."""
+    grid_order = np.flipud(mask.occupied)
+    return (grid_order.astype(np.int8) * 100).reshape(-1).tolist()
+
+
 def _segment_samples(
     points: Sequence[tuple[float, float]],
     maximum_step: float,

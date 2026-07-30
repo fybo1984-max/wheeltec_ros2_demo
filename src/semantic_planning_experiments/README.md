@@ -13,6 +13,11 @@ process:
 1. baseline with `mask_layer.enabled=false`;
 2. semantic condition with `mask_layer.enabled=true`.
 
+`mask_source:=file` is the default. `mask_source:=topic` converts the same
+trinary mask into a `nav_msgs/OccupancyGrid`, waits for the semantic layer
+subscriber, and publishes it with reliable, transient-local QoS. This validates
+the live topic transport without starting a camera or detector.
+
 The global costmap is cleared and allowed to update between conditions.
 `cache_obstacle_heuristic` is disabled so the second result cannot reuse an
 obstacle heuristic calculated for the baseline costmap.
@@ -24,6 +29,15 @@ Run after building and sourcing only this innovation workspace:
 ```bash
 ros2 launch semantic_planning_experiments planner_ab.launch.py \
   output_path:=/tmp/semantic_planning_ab.json
+```
+
+Validate the dynamic topic input path:
+
+```bash
+ros2 launch semantic_planning_experiments planner_ab.launch.py \
+  mask_source:=topic \
+  domain_id:=74 \
+  output_path:=/tmp/semantic_planning_ab_topic.json
 ```
 
 Use `domain_id:=<unused ID>` if 73 is already in use by another local test.
@@ -39,7 +53,7 @@ The JSON report includes:
 
 - code revision (with `-dirty` when applicable) and map/mask/planner-config
   SHA-256 digests;
-- explicit start, goal, and planner ID;
+- explicit start, goal, planner ID, mask source, and topic QoS;
 - complete baseline and semantic paths;
 - planner time, path length, semantic crossing length and ratio;
 - minimum path-to-semantic-boundary clearance;

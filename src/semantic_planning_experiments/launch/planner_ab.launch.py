@@ -81,6 +81,7 @@ def generate_launch_description():
 
     map_yaml = LaunchConfiguration('map_yaml')
     mask_yaml = LaunchConfiguration('mask_yaml')
+    mask_source = LaunchConfiguration('mask_source')
     output_path = LaunchConfiguration('output_path')
     start_x = LaunchConfiguration('start_x')
     start_y = LaunchConfiguration('start_y')
@@ -98,6 +99,7 @@ def generate_launch_description():
         param_rewrites={
             'yaml_filename': map_yaml,
             'map_yaml_path': mask_yaml,
+            'mask_source': mask_source,
         },
         convert_types=True,
     )
@@ -151,6 +153,7 @@ def generate_launch_description():
         parameters=[{
             'map_yaml_path': map_yaml,
             'mask_yaml_path': mask_yaml,
+            'mask_source': mask_source,
             'planner_config_path': os.path.join(
                 experiment_share, 'config', 'planner_ab.yaml'
             ),
@@ -183,6 +186,12 @@ def generate_launch_description():
             'mask_yaml',
             default_value=default_mask,
             description='Absolute Nav2 semantic mask YAML path.',
+        ),
+        DeclareLaunchArgument(
+            'mask_source',
+            default_value='file',
+            choices=['file', 'topic'],
+            description='Load the mask from YAML or publish it as OccupancyGrid.',
         ),
         DeclareLaunchArgument(
             'output_path',
