@@ -100,8 +100,9 @@ colcon test-result \
 语义膨胀、静态/话题输入、插件加载，以及“只增加软成本、不清除未知区、
 不降低致命障碍”的合并边界。动态生成包 12 项测试通过，其中 9 项行为测试
 覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减和地图栅格化。
-规划器实验包 9 项测试通过，其中 6 项行为测试覆盖 Nav2 PGM 坐标转换、
-穿越距离/比例、语义边界间距、指标差值和输入哈希。
+规划器实验包 11 项测试通过，其中 8 项行为测试覆盖 Nav2 PGM 坐标转换、
+OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、语义边界间距、
+指标差值和输入哈希。
 
 ## 第二阶段：动态 RGB-D 风险 mask
 
@@ -203,11 +204,38 @@ transient-local、depth 1 QoS 发布 0/100 风险栅格。当前模板的 file �
 规划耗时外的全部指标完全一致。这证明插件的动态话题输入与静态输入在相同 mask
 下语义等价，但尚未证明真实 RGB-D 检测链路的精度或时延。
 
+### 合成 RGB-D 到规划器的端到端验证
+
+以下 launch 使用确定性的合成 CameraInfo、16UC1 配准深度图、`person`
+Detection2D 和静态 TF，经过真实 `semantic_mask_generator` 生成
+`/semantic_mask`，再送入真实 Nav2 planner：
+
+```bash
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  output_path:=/tmp/semantic_generator_planning_ab.json
+```
+
+它使用独立 ROS domain 75，只启动合成输入、mask 生成器、map server、
+planner server 和生命周期管理器；不启动 controller、BT navigator、AMCL、
+相机、YOLO 或底盘，也不发布 `cmd_vel`。
+
+当前确定性场景把 2 m 深的居中 `person` 检测投影到地图约 `(13.0, 0.0)`，
+生成 1806 个风险栅格。验证结果：
+
+- 基线：路径约 14.01 m，穿越动态风险区约 2.35 m；
+- 语义：路径约 17.46 m，风险区穿越为 0，最小语义边界间距约 1.11 m；
+- 差值：路径增加约 3.45 m，基线与语义路径几何不同。
+
+JSON 同时记录动态 mask 的尺寸、占用数量、质心、边界、生成器参数文件哈希及
+完整路径。这证明了“检测消息 → RGB-D 投影 → 地图风险栅格 → Nav2 软成本 →
+路径改变”的软件链路。合成数据不证明真实相机标定、YOLO 检出率或现场时延，
+不能直接作为论文正式实验数据。
+
 ## 后续阶段与验收
 
-动态输入的验收顺序：
+动态输入后续验收顺序：
 
-- 先用录制的 RGB-D、检测和 TF 数据验证 `/semantic_mask`；
+- 用录制的真实 RGB-D、检测和 TF 数据验证 `/semantic_mask`；
 - 再对同一起终点分别使用 `file` 和 `topic` 输入；
 - 模型权重继续由 `.gitignore` 排除。
 

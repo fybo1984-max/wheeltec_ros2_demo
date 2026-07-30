@@ -82,6 +82,8 @@ def generate_launch_description():
     map_yaml = LaunchConfiguration('map_yaml')
     mask_yaml = LaunchConfiguration('mask_yaml')
     mask_source = LaunchConfiguration('mask_source')
+    topic_input_mode = LaunchConfiguration('topic_input_mode')
+    mask_producer_config = LaunchConfiguration('mask_producer_config')
     output_path = LaunchConfiguration('output_path')
     start_x = LaunchConfiguration('start_x')
     start_y = LaunchConfiguration('start_y')
@@ -154,6 +156,8 @@ def generate_launch_description():
             'map_yaml_path': map_yaml,
             'mask_yaml_path': mask_yaml,
             'mask_source': mask_source,
+            'topic_input_mode': topic_input_mode,
+            'mask_producer_config_path': mask_producer_config,
             'planner_config_path': os.path.join(
                 experiment_share, 'config', 'planner_ab.yaml'
             ),
@@ -192,6 +196,17 @@ def generate_launch_description():
             default_value='file',
             choices=['file', 'topic'],
             description='Load the mask from YAML or publish it as OccupancyGrid.',
+        ),
+        DeclareLaunchArgument(
+            'topic_input_mode',
+            default_value='fixture',
+            choices=['fixture', 'external'],
+            description='Publish the YAML fixture or wait for an external mask.',
+        ),
+        DeclareLaunchArgument(
+            'mask_producer_config',
+            default_value='',
+            description='Optional external mask producer config for hashing.',
         ),
         DeclareLaunchArgument(
             'output_path',

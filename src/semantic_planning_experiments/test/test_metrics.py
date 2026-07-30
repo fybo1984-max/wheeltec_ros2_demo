@@ -20,6 +20,8 @@ import pytest
 from semantic_planning_experiments.metrics import (
     MaskGrid,
     load_mask_grid,
+    mask_geometry_summary,
+    mask_grid_from_occupancy_data,
     metric_delta,
     occupancy_data,
     path_metrics,
@@ -92,6 +94,50 @@ def test_occupancy_data_flips_image_rows_into_ros_grid_order(tmp_path: Path):
     )
 
     assert occupancy_data(mask) == [100, 0, 0, 0, 100, 0]
+    transported = mask_grid_from_occupancy_data(
+        mask.width,
+        mask.height,
+        mask.resolution,
+        mask.origin_x,
+        mask.origin_y,
+        occupancy_data(mask),
+    )
+    np.testing.assert_array_equal(transported.occupied, occupied)
+
+
+def test_occupancy_grid_conversion_rejects_invalid_size():
+    with pytest.raises(ValueError, match='data size'):
+        mask_grid_from_occupancy_data(2, 2, 1.0, 0.0, 0.0, [0, 100])
+
+
+def test_mask_geometry_summary_reports_world_bounds():
+    mask = MaskGrid(
+        occupied=np.array([
+            [False, True, False],
+            [True, False, False],
+        ]),
+        resolution=0.5,
+        origin_x=10.0,
+        origin_y=-2.0,
+        yaml_path=None,
+        image_path=None,
+    )
+
+    assert mask_geometry_summary(mask) == {
+        'width': 3,
+        'height': 2,
+        'resolution': 0.5,
+        'origin_x': 10.0,
+        'origin_y': -2.0,
+        'occupied_cell_count': 2,
+        'occupied_centroid': {'x': 10.5, 'y': -1.5},
+        'occupied_bounds': {
+            'min_x': 10.0,
+            'max_x': 11.0,
+            'min_y': -2.0,
+            'max_y': -1.0,
+        },
+    }
 
 
 def test_empty_mask_has_no_clearance_value(tmp_path: Path):

@@ -1,0 +1,12 @@
+synthetic_rgbd_source:
+  ros__parameters:
+    camera_frame: synthetic_camera_optical_frame
+    camera_info_topic: /camera/color/camera_info
+    depth_topic: /camera/depth/image_raw
+    detections_topic: /detections
+    width: 64
+    height: 48
+    focal_length_px: 50.0
+    depth_m: 2.0
+    detection_score: 0.95
+    publish_rate_hz: 10.0

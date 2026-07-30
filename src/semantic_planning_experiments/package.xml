@@ -16,6 +16,8 @@
   <depend>nav_msgs</depend>
   <depend>rcl_interfaces</depend>
   <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>vision_msgs</depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>nav2_common</exec_depend>
@@ -25,6 +27,7 @@
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>semantic_costmap_plugin</exec_depend>
+  <exec_depend>semantic_mask_generator</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>wheeltec_nav2</exec_depend>
 

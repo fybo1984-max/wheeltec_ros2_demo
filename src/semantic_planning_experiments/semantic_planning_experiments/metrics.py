@@ -32,8 +32,8 @@ class MaskGrid:
     resolution: float
     origin_x: float
     origin_y: float
-    yaml_path: Path
-    image_path: Path
+    yaml_path: Path | None
+    image_path: Path | None
 
     @property
     def height(self) -> int:
@@ -142,6 +142,60 @@ def occupancy_data(mask: MaskGrid) -> list[int]:
     """Return a ROS OccupancyGrid data array for a trinary semantic mask."""
     grid_order = np.flipud(mask.occupied)
     return (grid_order.astype(np.int8) * 100).reshape(-1).tolist()
+
+
+def mask_grid_from_occupancy_data(
+    width: int,
+    height: int,
+    resolution: float,
+    origin_x: float,
+    origin_y: float,
+    data: Sequence[int],
+) -> MaskGrid:
+    """Convert ROS OccupancyGrid order into an image-oriented metric grid."""
+    if width <= 0 or height <= 0 or resolution <= 0.0:
+        raise ValueError('invalid OccupancyGrid geometry')
+    if len(data) != width * height:
+        raise ValueError('OccupancyGrid data size does not match geometry')
+    grid_order = np.asarray(data, dtype=np.int16).reshape((height, width))
+    occupied = np.flipud(grid_order > 0)
+    return MaskGrid(
+        occupied=occupied,
+        resolution=resolution,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        yaml_path=None,
+        image_path=None,
+    )
+
+
+def mask_geometry_summary(mask: MaskGrid) -> dict:
+    """Summarize occupied semantic cells in map coordinates."""
+    centers = mask.occupied_centers()
+    result = {
+        'width': mask.width,
+        'height': mask.height,
+        'resolution': mask.resolution,
+        'origin_x': mask.origin_x,
+        'origin_y': mask.origin_y,
+        'occupied_cell_count': int(centers.shape[0]),
+        'occupied_centroid': None,
+        'occupied_bounds': None,
+    }
+    if centers.size == 0:
+        return result
+    half_cell = mask.resolution * 0.5
+    result['occupied_centroid'] = {
+        'x': float(np.mean(centers[:, 0])),
+        'y': float(np.mean(centers[:, 1])),
+    }
+    result['occupied_bounds'] = {
+        'min_x': float(np.min(centers[:, 0]) - half_cell),
+        'max_x': float(np.max(centers[:, 0]) + half_cell),
+        'min_y': float(np.min(centers[:, 1]) - half_cell),
+        'max_y': float(np.max(centers[:, 1]) + half_cell),
+    }
+    return result
 
 
 def _segment_samples(

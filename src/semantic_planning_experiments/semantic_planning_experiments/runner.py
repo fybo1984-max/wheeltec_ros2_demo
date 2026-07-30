@@ -36,6 +36,8 @@ from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 
 from semantic_planning_experiments.metrics import (
     load_mask_grid,
+    mask_geometry_summary,
+    mask_grid_from_occupancy_data,
     metric_delta,
     occupancy_data,
     path_metrics,
@@ -64,6 +66,8 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('mask_yaml_path', '')
         self.declare_parameter('mask_source', 'file')
         self.declare_parameter('mask_topic', '/semantic_mask')
+        self.declare_parameter('topic_input_mode', 'fixture')
+        self.declare_parameter('mask_producer_config_path', '')
         self.declare_parameter('map_yaml_path', '')
         self.declare_parameter('planner_config_path', '')
         self.declare_parameter('output_path', '/tmp/semantic_planning_ab.json')
@@ -102,15 +106,24 @@ class SemanticPlanningAB(Node):
             ManageLifecycleNodes, lifecycle_service
         )
         self._mask_publisher = None
+        self._received_topic_mask = None
         if self.get_parameter('mask_source').value == 'topic':
             mask_qos = QoSProfile(depth=1)
             mask_qos.reliability = ReliabilityPolicy.RELIABLE
             mask_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
-            self._mask_publisher = self.create_publisher(
+            mask_topic = self.get_parameter('mask_topic').value
+            self._mask_subscription = self.create_subscription(
                 OccupancyGrid,
-                self.get_parameter('mask_topic').value,
+                mask_topic,
+                self._mask_callback,
                 mask_qos,
             )
+            if self.get_parameter('topic_input_mode').value == 'fixture':
+                self._mask_publisher = self.create_publisher(
+                    OccupancyGrid,
+                    mask_topic,
+                    mask_qos,
+                )
 
     def _wait_for_interfaces(self) -> None:
         timeout = float(
@@ -178,7 +191,41 @@ class SemanticPlanningAB(Node):
         if not response.success:
             raise RuntimeError('lifecycle manager rejected managed node shutdown')
 
-    def _publish_topic_mask(self, mask) -> None:
+    def _mask_callback(self, message: OccupancyGrid) -> None:
+        if message.header.frame_id != self.get_parameter('frame_id').value:
+            return
+        try:
+            mask = mask_grid_from_occupancy_data(
+                message.info.width,
+                message.info.height,
+                message.info.resolution,
+                message.info.origin.position.x,
+                message.info.origin.position.y,
+                message.data,
+            )
+        except ValueError:
+            return
+        self._received_topic_mask = mask
+
+    def _wait_for_topic_mask(self, require_nonempty: bool):
+        timeout = float(
+            self.get_parameter('mask_publish_timeout_seconds').value
+        )
+        deadline = time.monotonic() + timeout
+        while True:
+            mask = self._received_topic_mask
+            if mask is not None and (
+                not require_nonempty or bool(mask.occupied.any())
+            ):
+                return mask
+            if time.monotonic() >= deadline:
+                requirement = 'nonempty ' if require_nonempty else ''
+                raise TimeoutError(
+                    f'timed out waiting for {requirement}semantic mask'
+                )
+            rclpy.spin_once(self, timeout_sec=0.1)
+
+    def _publish_topic_mask(self, mask):
         if self._mask_publisher is None:
             raise RuntimeError('topic mask publisher was not initialized')
         timeout = float(
@@ -209,7 +256,20 @@ class SemanticPlanningAB(Node):
                 self.get_parameter('mask_topic').value,
             )
         )
+        transported_mask = self._wait_for_topic_mask(require_nonempty=False)
+        if (
+            transported_mask.width != mask.width
+            or transported_mask.height != mask.height
+            or transported_mask.resolution != mask.resolution
+            or transported_mask.origin_x != mask.origin_x
+            or transported_mask.origin_y != mask.origin_y
+            or not (
+                transported_mask.occupied == mask.occupied
+            ).all()
+        ):
+            raise RuntimeError('transported semantic mask differs from fixture')
         time.sleep(float(self.get_parameter('settle_seconds').value))
+        return transported_mask
 
     def _pose(self, prefix: str) -> PoseStamped:
         pose = PoseStamped()
@@ -299,24 +359,44 @@ class SemanticPlanningAB(Node):
         mask_source = str(
             self.get_parameter('mask_source').value
         ).strip()
-        if not mask_yaml_value:
-            raise ValueError('mask_yaml_path must not be empty')
+        topic_input_mode = str(
+            self.get_parameter('topic_input_mode').value
+        ).strip()
+        producer_config_value = str(
+            self.get_parameter('mask_producer_config_path').value
+        ).strip()
         if not map_yaml_value:
             raise ValueError('map_yaml_path must not be empty')
         if not planner_config_value:
             raise ValueError('planner_config_path must not be empty')
         if mask_source not in ('file', 'topic'):
             raise ValueError("mask_source must be 'file' or 'topic'")
-        mask_yaml_path = Path(mask_yaml_value)
+        if topic_input_mode not in ('fixture', 'external'):
+            raise ValueError("topic_input_mode must be 'fixture' or 'external'")
+        if mask_source == 'file' or topic_input_mode == 'fixture':
+            if not mask_yaml_value:
+                raise ValueError('mask_yaml_path must not be empty')
+            mask = load_mask_grid(Path(mask_yaml_value))
+        else:
+            mask = None
         map_yaml_path = Path(map_yaml_value).expanduser().resolve()
         planner_config_path = Path(
             planner_config_value
         ).expanduser().resolve()
-        mask = load_mask_grid(mask_yaml_path)
+        producer_config_path = (
+            Path(producer_config_value).expanduser().resolve()
+            if producer_config_value else None
+        )
 
         self._wait_for_interfaces()
         if mask_source == 'topic':
-            self._publish_topic_mask(mask)
+            if topic_input_mode == 'fixture':
+                mask = self._publish_topic_mask(mask)
+            else:
+                mask = self._wait_for_topic_mask(require_nonempty=True)
+                time.sleep(float(self.get_parameter('settle_seconds').value))
+        if mask is None:
+            raise RuntimeError('semantic mask is unavailable')
         baseline = self._plan_condition('baseline', False, mask)
         semantic = self._plan_condition('semantic', True, mask)
         start = self._pose('start').pose
@@ -337,14 +417,34 @@ class SemanticPlanningAB(Node):
             'inputs': {
                 'map_yaml_path': str(map_yaml_path),
                 'map_yaml_sha256': sha256_file(map_yaml_path),
-                'mask_yaml_path': str(mask.yaml_path),
-                'mask_yaml_sha256': sha256_file(mask.yaml_path),
-                'mask_image_path': str(mask.image_path),
-                'mask_image_sha256': sha256_file(mask.image_path),
+                'mask_yaml_path': (
+                    str(mask.yaml_path) if mask.yaml_path else None
+                ),
+                'mask_yaml_sha256': (
+                    sha256_file(mask.yaml_path) if mask.yaml_path else None
+                ),
+                'mask_image_path': (
+                    str(mask.image_path) if mask.image_path else None
+                ),
+                'mask_image_sha256': (
+                    sha256_file(mask.image_path) if mask.image_path else None
+                ),
+                'mask_grid': mask_geometry_summary(mask),
                 'planner_config_path': str(planner_config_path),
                 'planner_config_sha256': sha256_file(planner_config_path),
                 'planner_id': self.get_parameter('planner_id').value,
                 'mask_source': mask_source,
+                'topic_input_mode': (
+                    topic_input_mode if mask_source == 'topic' else None
+                ),
+                'mask_producer_config_path': (
+                    str(producer_config_path)
+                    if producer_config_path else None
+                ),
+                'mask_producer_config_sha256': (
+                    sha256_file(producer_config_path)
+                    if producer_config_path else None
+                ),
                 'mask_topic': (
                     self.get_parameter('mask_topic').value
                     if mask_source == 'topic' else None
@@ -403,9 +503,17 @@ def main(args=None) -> None:
         node.run()
     except Exception as error:
         node.get_logger().error(f'A/B experiment failed: {error}')
+        if node._lifecycle_client.service_is_ready():
+            try:
+                node._shutdown_managed_nodes()
+            except Exception as shutdown_error:
+                node.get_logger().error(
+                    f'managed node shutdown also failed: {shutdown_error}'
+                )
         exit_code = 1
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
     if exit_code:
         sys.exit(exit_code)

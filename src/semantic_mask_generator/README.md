@@ -17,5 +17,10 @@ The output values are semantic risk intensities in `[0, 100]`. Configure
 `semantic_costmap_plugin::MaskLayer` with `mask_source: topic` and
 `mask_topic: /semantic_mask` to map these intensities into Nav2 soft costs.
 
+The controller-free integration test in `semantic_planning_experiments`
+publishes deterministic synthetic RGB-D and Detection2D messages through this
+node, then compares Nav2 paths with the resulting topic mask disabled and
+enabled. It does not require a camera, detector, or robot base.
+
 See the workspace-level `SEMANTIC_NAVIGATION.md` before using live sensors or
 starting navigation.

@@ -18,6 +18,11 @@ trinary mask into a `nav_msgs/OccupancyGrid`, waits for the semantic layer
 subscriber, and publishes it with reliable, transient-local QoS. This validates
 the live topic transport without starting a camera or detector.
 
+`generator_planner_ab.launch.py` goes one step further: a deterministic
+synthetic CameraInfo, registered 16UC1 depth image, and person Detection2D pass
+through the real `semantic_mask_generator`. The runner consumes that external
+topic and records the generated mask geometry before planning.
+
 The global costmap is cleared and allowed to update between conditions.
 `cache_obstacle_heuristic` is disabled so the second result cannot reuse an
 obstacle heuristic calculated for the baseline costmap.
@@ -40,6 +45,16 @@ ros2 launch semantic_planning_experiments planner_ab.launch.py \
   output_path:=/tmp/semantic_planning_ab_topic.json
 ```
 
+Validate the generator-to-planner software chain:
+
+```bash
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  output_path:=/tmp/semantic_generator_planning_ab.json
+```
+
+This launch uses ROS domain 75 and still does not start a controller, BT
+navigator, localization, physical camera, detector, or robot-base node.
+
 Use `domain_id:=<unused ID>` if 73 is already in use by another local test.
 Hybrid-A* builds its lookup table during startup, so the action client allows
 up to 60 seconds for lifecycle activation on Jetson-class hardware.
@@ -53,7 +68,8 @@ The JSON report includes:
 
 - code revision (with `-dirty` when applicable) and map/mask/planner-config
   SHA-256 digests;
-- explicit start, goal, planner ID, mask source, and topic QoS;
+- explicit start, goal, planner ID, mask source, topic mode, and topic QoS;
+- generated mask cell count, map-coordinate centroid and occupied bounds;
 - complete baseline and semantic paths;
 - planner time, path length, semantic crossing length and ratio;
 - minimum path-to-semantic-boundary clearance;
