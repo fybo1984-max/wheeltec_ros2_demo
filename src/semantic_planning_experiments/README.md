@@ -130,6 +130,18 @@ criteria, isolated domains, output paths, and command argument arrays. Only the
 two controller-free experiment launch files are allowed. The planner does not
 execute generated commands.
 
+After the planned reports exist, audit every numeric criterion:
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_evaluate \
+  /tmp/semantic_paper_pilot_plan.json \
+  --output /tmp/semantic_paper_pilot_evaluation.json
+```
+
+The evaluator exits successfully only when all trials pass. Failed, missing,
+invalid, dirty-revision, and unsafe-scope reports remain visible in the JSON
+audit and cause a nonzero exit.
+
 Reports default to `/tmp` and must not be committed as claimed research
 results until the selected map, mask, and experiment region have been
 validated.

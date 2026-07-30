@@ -77,6 +77,17 @@ Pilot v1 当前包含：
 展开后共 11 个 trial，使用独立 ROS domain 90–100。manifest 只生成计划，
 不会执行 launch。
 
+生成报告后，逐 trial 应用 manifest 中的数值验收条件：
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_evaluate \
+  /tmp/semantic_paper_pilot_plan.json \
+  --output /tmp/semantic_paper_pilot_evaluation.json
+```
+
+只有全部 trial 通过时命令才返回成功；失败、缺失、无效、dirty revision 和
+不安全 scope 均保留在 JSON 审计中并返回非零状态。
+
 ## 数据有效性规则
 
 正式结果必须同时满足：
