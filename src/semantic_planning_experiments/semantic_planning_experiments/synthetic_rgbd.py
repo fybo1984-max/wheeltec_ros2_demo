@@ -14,6 +14,8 @@
 
 """Publish deterministic registered RGB-D and person detections for tests."""
 
+import time
+
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -41,6 +43,7 @@ class SyntheticRGBDSource(Node):
         self.declare_parameter('depth_m', 2.0)
         self.declare_parameter('detection_score', 0.95)
         self.declare_parameter('publish_rate_hz', 10.0)
+        self.declare_parameter('detections_active_duration_sec', 0.0)
 
         self._camera_frame = self.get_parameter('camera_frame').value
         self._width = int(self.get_parameter('width').value)
@@ -49,12 +52,19 @@ class SyntheticRGBDSource(Node):
         self._depth_m = float(self.get_parameter('depth_m').value)
         self._score = float(self.get_parameter('detection_score').value)
         publish_rate = float(self.get_parameter('publish_rate_hz').value)
+        self._active_duration = float(
+            self.get_parameter('detections_active_duration_sec').value
+        )
         if self._width <= 0 or self._height <= 0:
             raise ValueError('synthetic image dimensions must be positive')
         if self._focal <= 0.0 or self._depth_m <= 0.0 or publish_rate <= 0.0:
             raise ValueError('synthetic focal length, depth, and rate must be positive')
         if not 0.0 <= self._score <= 1.0:
             raise ValueError('synthetic detection score must be in [0, 1]')
+        if self._active_duration < 0.0:
+            raise ValueError('detections_active_duration_sec must be nonnegative')
+        self._started_at = time.monotonic()
+        self._reported_stop = False
 
         self._camera_info_publisher = self.create_publisher(
             CameraInfo,
@@ -117,7 +127,16 @@ class SyntheticRGBDSource(Node):
         detections = Detection2DArray()
         detections.header.stamp = stamp
         detections.header.frame_id = self._camera_frame
-        detections.detections = [detection]
+        detections_active = (
+            self._active_duration == 0.0
+            or time.monotonic() - self._started_at < self._active_duration
+        )
+        detections.detections = [detection] if detections_active else []
+        if not detections_active and not self._reported_stop:
+            self.get_logger().info(
+                'synthetic detections stopped; RGB-D publishing continues'
+            )
+            self._reported_stop = True
 
         self._camera_info_publisher.publish(camera_info)
         self._depth_publisher.publish(depth)

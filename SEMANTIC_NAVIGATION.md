@@ -265,6 +265,34 @@ ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
 软成本而非硬障碍。当前表格是软件链路单次验证；论文参数结论必须在固定提交上
 重复多次并报告分布，不能只使用该表。
 
+### 动态风险清除与路径恢复
+
+合成输入可在指定时间后停止发布检测，但继续发布 CameraInfo 和深度图。以下
+实验等待生成器完成保持与衰减，在语义层始终开启的情况下执行第三次规划：
+
+```bash
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  domain_id:=82 \
+  detection_active_duration_sec:=30.0 \
+  observation_hold_sec:=0.5 \
+  observation_decay_sec:=1.0 \
+  recovery_timeout_seconds:=15.0 \
+  output_path:=/tmp/semantic_decay_ab.json
+```
+
+当前确定性结果：
+
+1. 无语义层基线约 14.01 m，穿越原风险区约 2.35 m；
+2. 人员风险存在且语义层开启时约 17.46 m，风险区穿越为 0；
+3. 停止检测并等到 mask 清空后，语义层保持开启，路径恢复为约 14.01 m；
+4. 恢复路径与基线 120 个位姿逐点一致，路径长度、穿越长度、穿越比例和间距
+   的差值均为 0。
+
+报告中的 `recovered_after_mask_clear` 保存第三条路径，
+`delta_recovered_minus_baseline` 保存恢复路径与基线的指标差异。这验证了动态
+风险不会永久残留在 costmap。该实验验证软件时序，不替代真实检测丢失、遮挡和
+跟踪抖动测试。
+
 ## 后续阶段与验收
 
 动态输入后续验收顺序：

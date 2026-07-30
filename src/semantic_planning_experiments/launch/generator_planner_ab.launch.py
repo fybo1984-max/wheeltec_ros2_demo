@@ -47,6 +47,12 @@ def generate_launch_description():
     output_path = LaunchConfiguration('output_path')
     task_urgency = LaunchConfiguration('task_urgency')
     avoidance_level = LaunchConfiguration('avoidance_level')
+    detection_active_duration = LaunchConfiguration(
+        'detection_active_duration_sec'
+    )
+    observation_hold = LaunchConfiguration('observation_hold_sec')
+    observation_decay = LaunchConfiguration('observation_decay_sec')
+    recovery_timeout = LaunchConfiguration('recovery_timeout_seconds')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -69,6 +75,26 @@ def generate_launch_description():
             default_value='70.0',
             description='Semantic layer avoidance level in [0, 100].',
         ),
+        DeclareLaunchArgument(
+            'detection_active_duration_sec',
+            default_value='0.0',
+            description='Stop synthetic detections after this duration; zero is continuous.',
+        ),
+        DeclareLaunchArgument(
+            'observation_hold_sec',
+            default_value='60.0',
+            description='Generator risk hold duration.',
+        ),
+        DeclareLaunchArgument(
+            'observation_decay_sec',
+            default_value='60.0',
+            description='Generator risk decay duration.',
+        ),
+        DeclareLaunchArgument(
+            'recovery_timeout_seconds',
+            default_value='0.0',
+            description='Wait for mask clearing and plan a recovery condition.',
+        ),
         SetEnvironmentVariable('ROS_DOMAIN_ID', domain_id),
         SetEnvironmentVariable('ROS_LOCALHOST_ONLY', '1'),
         Node(
@@ -81,8 +107,8 @@ def generate_launch_description():
                 {
                     'enabled': True,
                     'depth_is_registered': True,
-                    'observation_hold_sec': 60.0,
-                    'observation_decay_sec': 60.0,
+                    'observation_hold_sec': observation_hold,
+                    'observation_decay_sec': observation_decay,
                 },
             ],
         ),
@@ -91,7 +117,13 @@ def generate_launch_description():
             executable='synthetic_rgbd_source',
             name='synthetic_rgbd_source',
             output='screen',
-            parameters=[synthetic_config],
+            parameters=[
+                synthetic_config,
+                {
+                    'detections_active_duration_sec':
+                        detection_active_duration,
+                },
+            ],
         ),
         Node(
             package='tf2_ros',
@@ -116,9 +148,14 @@ def generate_launch_description():
                 'mask_source': 'topic',
                 'topic_input_mode': 'external',
                 'mask_producer_config': generator_config,
+                'producer_detection_active_duration_sec':
+                    detection_active_duration,
+                'producer_observation_hold_sec': observation_hold,
+                'producer_observation_decay_sec': observation_decay,
                 'output_path': output_path,
                 'task_urgency': task_urgency,
                 'avoidance_level': avoidance_level,
+                'recovery_timeout_seconds': recovery_timeout,
             }.items(),
         ),
     ])

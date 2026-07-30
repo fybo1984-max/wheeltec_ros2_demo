@@ -84,6 +84,15 @@ def generate_launch_description():
     mask_source = LaunchConfiguration('mask_source')
     topic_input_mode = LaunchConfiguration('topic_input_mode')
     mask_producer_config = LaunchConfiguration('mask_producer_config')
+    producer_detection_active_duration = LaunchConfiguration(
+        'producer_detection_active_duration_sec'
+    )
+    producer_observation_hold = LaunchConfiguration(
+        'producer_observation_hold_sec'
+    )
+    producer_observation_decay = LaunchConfiguration(
+        'producer_observation_decay_sec'
+    )
     output_path = LaunchConfiguration('output_path')
     start_x = LaunchConfiguration('start_x')
     start_y = LaunchConfiguration('start_y')
@@ -94,6 +103,9 @@ def generate_launch_description():
     settle_seconds = LaunchConfiguration('settle_seconds')
     task_urgency = LaunchConfiguration('task_urgency')
     avoidance_level = LaunchConfiguration('avoidance_level')
+    recovery_timeout_seconds = LaunchConfiguration(
+        'recovery_timeout_seconds'
+    )
     domain_id = LaunchConfiguration('domain_id')
 
     configured_parameters = RewrittenYaml(
@@ -160,6 +172,10 @@ def generate_launch_description():
             'mask_source': mask_source,
             'topic_input_mode': topic_input_mode,
             'mask_producer_config_path': mask_producer_config,
+            'producer_detection_active_duration_sec':
+                producer_detection_active_duration,
+            'producer_observation_hold_sec': producer_observation_hold,
+            'producer_observation_decay_sec': producer_observation_decay,
             'planner_config_path': os.path.join(
                 experiment_share, 'config', 'planner_ab.yaml'
             ),
@@ -173,6 +189,7 @@ def generate_launch_description():
             'settle_seconds': settle_seconds,
             'task_urgency': task_urgency,
             'avoidance_level': avoidance_level,
+            'recovery_timeout_seconds': recovery_timeout_seconds,
             'code_revision': _workspace_revision(experiment_share),
         }],
     )
@@ -213,6 +230,21 @@ def generate_launch_description():
             description='Optional external mask producer config for hashing.',
         ),
         DeclareLaunchArgument(
+            'producer_detection_active_duration_sec',
+            default_value='-1.0',
+            description='Recorded external producer detection duration.',
+        ),
+        DeclareLaunchArgument(
+            'producer_observation_hold_sec',
+            default_value='-1.0',
+            description='Recorded external producer hold duration.',
+        ),
+        DeclareLaunchArgument(
+            'producer_observation_decay_sec',
+            default_value='-1.0',
+            description='Recorded external producer decay duration.',
+        ),
+        DeclareLaunchArgument(
             'output_path',
             default_value='/tmp/semantic_planning_ab.json',
             description='JSON report path; /tmp avoids repository artifacts.',
@@ -233,6 +265,11 @@ def generate_launch_description():
             'avoidance_level',
             default_value='70.0',
             description='Semantic layer avoidance level in [0, 100].',
+        ),
+        DeclareLaunchArgument(
+            'recovery_timeout_seconds',
+            default_value='0.0',
+            description='Wait for an empty external mask and replan if positive.',
         ),
         map_server,
         planner_server,

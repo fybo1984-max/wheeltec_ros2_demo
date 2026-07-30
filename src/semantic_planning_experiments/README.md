@@ -65,6 +65,23 @@ ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
   output_path:=/tmp/semantic_sweep_urgent.json
 ```
 
+Verify that a temporary risk decays and the route recovers while the semantic
+layer remains enabled:
+
+```bash
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  domain_id:=82 \
+  detection_active_duration_sec:=30.0 \
+  observation_hold_sec:=0.5 \
+  observation_decay_sec:=1.0 \
+  recovery_timeout_seconds:=15.0 \
+  output_path:=/tmp/semantic_decay_ab.json
+```
+
+With a positive `recovery_timeout_seconds`, the runner waits for an empty
+external mask and records a third `recovered_after_mask_clear` path plus its
+delta from the baseline.
+
 Use `domain_id:=<unused ID>` if 73 is already in use by another local test.
 Hybrid-A* builds its lookup table during startup, so the action client allows
 up to 60 seconds for lifecycle activation on Jetson-class hardware.

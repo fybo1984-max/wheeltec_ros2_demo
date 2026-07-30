@@ -10,3 +10,4 @@ synthetic_rgbd_source:
     depth_m: 2.0
     detection_score: 0.95
     publish_rate_hz: 10.0
+    detections_active_duration_sec: 0.0

@@ -68,6 +68,12 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('mask_topic', '/semantic_mask')
         self.declare_parameter('topic_input_mode', 'fixture')
         self.declare_parameter('mask_producer_config_path', '')
+        self.declare_parameter(
+            'producer_detection_active_duration_sec',
+            -1.0,
+        )
+        self.declare_parameter('producer_observation_hold_sec', -1.0)
+        self.declare_parameter('producer_observation_decay_sec', -1.0)
         self.declare_parameter('map_yaml_path', '')
         self.declare_parameter('planner_config_path', '')
         self.declare_parameter('output_path', '/tmp/semantic_planning_ab.json')
@@ -83,6 +89,7 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('goal_yaw', 0.0)
         self.declare_parameter('settle_seconds', 1.5)
         self.declare_parameter('mask_publish_timeout_seconds', 10.0)
+        self.declare_parameter('recovery_timeout_seconds', 0.0)
         self.declare_parameter('service_timeout_seconds', 60.0)
         self.declare_parameter('planning_timeout_seconds', 30.0)
         self.declare_parameter('code_revision', 'unknown')
@@ -223,19 +230,28 @@ class SemanticPlanningAB(Node):
             return
         self._received_topic_mask = mask
 
-    def _wait_for_topic_mask(self, require_nonempty: bool):
-        timeout = float(
-            self.get_parameter('mask_publish_timeout_seconds').value
+    def _wait_for_topic_mask(
+        self,
+        expected_nonempty: bool | None,
+        timeout_seconds: float | None = None,
+    ):
+        timeout = (
+            float(self.get_parameter('mask_publish_timeout_seconds').value)
+            if timeout_seconds is None else timeout_seconds
         )
         deadline = time.monotonic() + timeout
         while True:
             mask = self._received_topic_mask
-            if mask is not None and (
-                not require_nonempty or bool(mask.occupied.any())
-            ):
-                return mask
+            if mask is not None:
+                is_nonempty = bool(mask.occupied.any())
+                if expected_nonempty is None or is_nonempty == expected_nonempty:
+                    return mask
             if time.monotonic() >= deadline:
-                requirement = 'nonempty ' if require_nonempty else ''
+                requirement = {
+                    True: 'nonempty ',
+                    False: 'empty ',
+                    None: '',
+                }[expected_nonempty]
                 raise TimeoutError(
                     f'timed out waiting for {requirement}semantic mask'
                 )
@@ -272,7 +288,7 @@ class SemanticPlanningAB(Node):
                 self.get_parameter('mask_topic').value,
             )
         )
-        transported_mask = self._wait_for_topic_mask(require_nonempty=False)
+        transported_mask = self._wait_for_topic_mask(expected_nonempty=None)
         if (
             transported_mask.width != mask.width
             or transported_mask.height != mask.height
@@ -392,6 +408,9 @@ class SemanticPlanningAB(Node):
         avoidance_level = float(
             self.get_parameter('avoidance_level').value
         )
+        recovery_timeout = float(
+            self.get_parameter('recovery_timeout_seconds').value
+        )
         if not map_yaml_value:
             raise ValueError('map_yaml_path must not be empty')
         if not planner_config_value:
@@ -404,6 +423,14 @@ class SemanticPlanningAB(Node):
             raise ValueError('task_urgency must be in [0, 10]')
         if not 0.0 <= avoidance_level <= 100.0:
             raise ValueError('avoidance_level must be in [0, 100]')
+        if recovery_timeout < 0.0:
+            raise ValueError('recovery_timeout_seconds must be nonnegative')
+        if recovery_timeout > 0.0 and not (
+            mask_source == 'topic' and topic_input_mode == 'external'
+        ):
+            raise ValueError(
+                'mask recovery requires external topic input'
+            )
         if mask_source == 'file' or topic_input_mode == 'fixture':
             if not mask_yaml_value:
                 raise ValueError('mask_yaml_path must not be empty')
@@ -424,12 +451,25 @@ class SemanticPlanningAB(Node):
             if topic_input_mode == 'fixture':
                 mask = self._publish_topic_mask(mask)
             else:
-                mask = self._wait_for_topic_mask(require_nonempty=True)
+                mask = self._wait_for_topic_mask(expected_nonempty=True)
                 time.sleep(float(self.get_parameter('settle_seconds').value))
         if mask is None:
             raise RuntimeError('semantic mask is unavailable')
         baseline = self._plan_condition('baseline', False, mask)
         semantic = self._plan_condition('semantic', True, mask)
+        recovered = None
+        if recovery_timeout > 0.0:
+            self.get_logger().info('waiting for semantic mask to become empty')
+            self._wait_for_topic_mask(
+                expected_nonempty=False,
+                timeout_seconds=recovery_timeout,
+            )
+            time.sleep(float(self.get_parameter('settle_seconds').value))
+            recovered = self._plan_condition(
+                'recovered_after_mask_clear',
+                True,
+                mask,
+            )
         start = self._pose('start').pose
         goal = self._pose('goal').pose
         report = {
@@ -468,6 +508,7 @@ class SemanticPlanningAB(Node):
                     'task_urgency': task_urgency,
                     'avoidance_level': avoidance_level,
                 },
+                'recovery_timeout_seconds': recovery_timeout,
                 'mask_source': mask_source,
                 'topic_input_mode': (
                     topic_input_mode if mask_source == 'topic' else None
@@ -478,6 +519,26 @@ class SemanticPlanningAB(Node):
                 ),
                 'mask_producer_config_sha256': (
                     sha256_file(producer_config_path)
+                    if producer_config_path else None
+                ),
+                'mask_producer_runtime_parameters': (
+                    {
+                        'detection_active_duration_sec': float(
+                            self.get_parameter(
+                                'producer_detection_active_duration_sec'
+                            ).value
+                        ),
+                        'observation_hold_sec': float(
+                            self.get_parameter(
+                                'producer_observation_hold_sec'
+                            ).value
+                        ),
+                        'observation_decay_sec': float(
+                            self.get_parameter(
+                                'producer_observation_decay_sec'
+                            ).value
+                        ),
+                    }
                     if producer_config_path else None
                 ),
                 'mask_topic': (
@@ -511,6 +572,11 @@ class SemanticPlanningAB(Node):
             'semantic': semantic,
             'delta_semantic_minus_baseline': metric_delta(
                 baseline['metrics'], semantic['metrics']
+            ),
+            'recovered_after_mask_clear': recovered,
+            'delta_recovered_minus_baseline': (
+                metric_delta(baseline['metrics'], recovered['metrics'])
+                if recovered else None
             ),
         }
 
