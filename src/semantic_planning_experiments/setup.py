@@ -34,6 +34,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'semantic_experiment_plan = '
+            'semantic_planning_experiments.experiment_manifest:main',
             'semantic_planning_ab = semantic_planning_experiments.runner:main',
             'semantic_planning_summary = '
             'semantic_planning_experiments.report_summary:main',

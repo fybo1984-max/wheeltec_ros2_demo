@@ -100,9 +100,10 @@ colcon test-result \
 语义膨胀、静态/话题输入、插件加载，以及“只增加软成本、不清除未知区、
 不降低致命障碍”的合并边界。动态生成包 12 项测试通过，其中 9 项行为测试
 覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减和地图栅格化。
-规划器实验包 15 项测试通过，其中 12 项行为测试覆盖 Nav2 PGM 坐标转换、
+规划器实验包 19 项测试通过，其中 16 项行为测试覆盖 Nav2 PGM 坐标转换、
 OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、语义边界间距、
-指标差值、输入哈希、可比较性校验、统计汇总和路径重复性检测。
+指标差值、输入哈希、可比较性校验、统计汇总、路径重复性检测和论文 manifest
+安全展开。
 
 ## 第二阶段：动态 RGB-D 风险 mask
 
@@ -323,6 +324,22 @@ ros2 run semantic_planning_experiments semantic_planning_summary \
 两种条件分别只有一个唯一路径哈希，所有非耗时指标总体标准差均为 0。该结果
 验证确定性合成链路和统计工具；样本量仅为 3，不能替代论文中的多场景、多随机
 种子和真实传感器重复试验。
+
+### 论文 Pilot manifest
+
+论文实验协议见 `PAPER_EXPERIMENT_PROTOCOL.md`。Pilot v1 manifest 将研究问题、
+场景因素、重复数、launch 参数和数值验收阈值放在同一份 YAML 中：
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_pilot_manifest.yaml \
+  --output /tmp/semantic_paper_pilot_plan.json
+```
+
+当前计划包含 4 个场景、11 个 trial，使用独立 ROS domain 90–100。输出保存
+manifest 哈希、计划指纹、每个 trial 的 argv、报告路径、研究问题、因素和验收
+条件。该命令只生成计划，不执行 launch，并明确记录 controller、硬件和速度
+命令均不允许。
 
 ## 后续阶段与验收
 

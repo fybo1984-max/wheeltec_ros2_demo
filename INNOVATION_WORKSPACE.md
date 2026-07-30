@@ -80,8 +80,8 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 固定语音指令和点位持久化测试：81 项通过。
 - 语义 costmap 插件：10 个 CTest 全部通过，其中 11 个行为测试通过。
 - 动态语义 mask：12 项测试通过，其中 9 项投影、衰减和栅格化行为测试通过。
-- 规划器级 A/B 实验包：15 项测试通过，其中 12 项地图坐标、动态栅格转换、
-  路径指标和重复试验统计行为测试
+- 规划器级 A/B 实验包：19 项测试通过，其中 16 项地图坐标、动态栅格转换、
+  路径指标、重复试验统计和论文 manifest 行为测试
   通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
 - 默认模板路线的两次离线规划得到完全相同的路径几何：基线穿越语义区约
   7.50 m，启用语义层后穿越为 0，路径增加约 3.26 m，语义边界最小间距约
@@ -102,6 +102,8 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 干净提交 `da778c1` 的三次端到端重复试验已自动汇总：比较指纹一致，基线
   和语义路径各只有一个唯一 SHA-256，路径长度、穿越距离和间距标准差均为 0；
   规划耗时保留均值、总体标准差及范围。
+- 论文 Pilot v1 manifest 已展开为 4 个场景、11 个计划 trial，独立使用
+  ROS domain 90–100；计划生成器固定为无控制器 launch，不执行命令。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。
@@ -110,3 +112,5 @@ ros2 launch largemodel largemodel_control.launch.py \
 
 工业 AGV 语义 costmap 的设计判断、上游版本、静态 mask PoC、运行安全提示
 和分阶段实验方法见 [`SEMANTIC_NAVIGATION.md`](SEMANTIC_NAVIGATION.md)。
+面向论文发表的研究问题、方法组、指标、数据有效性规则和 Pilot 场景见
+[`PAPER_EXPERIMENT_PROTOCOL.md`](PAPER_EXPERIMENT_PROTOCOL.md)。

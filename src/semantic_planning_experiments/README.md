@@ -117,6 +117,19 @@ The summarizer rejects dirty revisions and mismatched code, configuration,
 route, source, or policy inputs. It reports metric mean, population standard
 deviation, range, and exact path SHA-256 repeatability for each condition.
 
+Validate and expand the paper pilot manifest without executing any launch:
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_pilot_manifest.yaml \
+  --output /tmp/semantic_paper_pilot_plan.json
+```
+
+The plan records research questions, factors, repetitions, numeric acceptance
+criteria, isolated domains, output paths, and command argument arrays. Only the
+two controller-free experiment launch files are allowed. The planner does not
+execute generated commands.
+
 Reports default to `/tmp` and must not be committed as claimed research
 results until the selected map, mask, and experiment region have been
 validated.
