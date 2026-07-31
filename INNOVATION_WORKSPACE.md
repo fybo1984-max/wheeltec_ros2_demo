@@ -127,6 +127,9 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 新增独立 `risk_value_scale` 与 `risk_radius_scale` 实验参数和实际 mask
   值摘要；风险因素分离消融计划包含共享基准、2 个风险值水平和 2 个半径水平，
   共 5 个场景、15 个计划 trial，使用 ROS domain 180–194。
+- 干净提交 `21f02ef` 的 15 次风险因素分离 Pilot 已全部通过验收，0 失败、
+  0 缺失、0 无效，五组路径各自完全重复。风险值 65 允许软穿越，85/100
+  完全绕行；固定风险值 100 时，半径增大对应路径长度逐级增加。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。
