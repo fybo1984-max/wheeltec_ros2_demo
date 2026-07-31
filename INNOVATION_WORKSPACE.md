@@ -121,6 +121,9 @@ ros2 launch largemodel largemodel_control.launch.py \
   标签；对象类别 manifest 包含 4 个场景、12 个计划 trial，使用 ROS domain
   160–171。除 `person` 外的真实识别仍需自定义仓储模型，当前合成试验不声称
   已完成真实 YOLO 识别。
+- 干净提交 `b9e1611` 的 12 次对象类别 Pilot 已全部通过验收，无失败、缺失或
+  无效报告，四类路径各自完全重复。`person`、`forklift`、`fragile_box`
+  完全绕行；低风险 `pallet` 仍穿越约 1.35 m，验证类别档案保持可调软代价。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。

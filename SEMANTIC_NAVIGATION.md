@@ -377,6 +377,11 @@ ros2 run semantic_planning_experiments semantic_experiment_plan \
   --output /tmp/semantic_paper_object_class_plan.json
 ```
 
+干净提交 `b9e1611` 的 12 次对象类别 Pilot 已全部通过验收，四类各自的路径
+几何完全重复。`person`、`forklift`、`fragile_box` 的语义路径均不穿越风险
+区；低风险 `pallet` 保持软代价，语义路径约 14.0169 m，仍穿越约 1.3469 m。
+该结果验证不同风险档案的下游响应，不代表真实 YOLO 已能识别这些仓储对象。
+
 ## 后续阶段与验收
 
 动态输入后续验收顺序：
