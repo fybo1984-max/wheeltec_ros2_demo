@@ -30,7 +30,8 @@ namespace semantic_costmap_plugin
 {
 
 MaskLayer::MaskLayer()
-: mask_cost_value_(125),
+: cost_mode_("fuzzy"),
+  mask_cost_value_(125),
   map_loaded_(false),
   fuzzy_recalculation_needed_(true),
   task_urgency_(0),
@@ -58,6 +59,7 @@ void MaskLayer::onInitialize()
   declareParameter("mask_source", rclcpp::ParameterValue("file"));
   declareParameter("map_yaml_path", rclcpp::ParameterValue(""));
   declareParameter("mask_topic", rclcpp::ParameterValue("/semantic_mask"));
+  declareParameter("cost_mode", rclcpp::ParameterValue("fuzzy"));
   declareParameter("mask_cost_value", rclcpp::ParameterValue(125));
   declareParameter("task_urgency", rclcpp::ParameterValue(0));
   declareParameter("avoidance_level", rclcpp::ParameterValue(70.0));
@@ -74,6 +76,7 @@ void MaskLayer::onInitialize()
   mask_source_ = node->get_parameter(name_ + ".mask_source").as_string();
   map_yaml_path_ = node->get_parameter(name_ + ".map_yaml_path").as_string();
   mask_topic_ = node->get_parameter(name_ + ".mask_topic").as_string();
+  cost_mode_ = node->get_parameter(name_ + ".cost_mode").as_string();
   const auto mask_cost = node->get_parameter(name_ + ".mask_cost_value").as_int();
   const auto task_urgency = node->get_parameter(name_ + ".task_urgency").as_int();
   const double avoidance_level =
@@ -95,6 +98,14 @@ void MaskLayer::onInitialize()
   if (mask_source_ == "topic" && mask_topic_.empty()) {
     throw std::runtime_error(
             "mask_layer.mask_topic must not be empty for topic source");
+  }
+  if (
+    cost_mode_ != "fuzzy" &&
+    cost_mode_ != "fixed" &&
+    cost_mode_ != "lethal")
+  {
+    throw std::runtime_error(
+            "mask_layer.cost_mode must be 'fuzzy', 'fixed', or 'lethal'");
   }
   if (mask_cost < 1 || mask_cost > nav2_costmap_2d::MAX_NON_OBSTACLE) {
     throw std::runtime_error("mask_layer.mask_cost_value must be in [1, 252]");
@@ -153,14 +164,15 @@ void MaskLayer::onInitialize()
   if (mask_source_ == "file") {
     RCLCPP_INFO(
       logger_,
-      "Semantic mask layer loaded %ux%u mask from %s (enabled=%s)",
+      "Semantic mask layer loaded %ux%u mask from %s (enabled=%s, cost_mode=%s)",
       mask_.info.width, mask_.info.height, map_yaml_path_.c_str(),
-      enabled_ ? "true" : "false");
+      enabled_ ? "true" : "false", cost_mode_.c_str());
   } else {
     RCLCPP_INFO(
       logger_,
-      "Semantic mask layer waiting for OccupancyGrid on %s (enabled=%s)",
-      mask_topic_.c_str(), enabled_ ? "true" : "false");
+      "Semantic mask layer waiting for OccupancyGrid on %s "
+      "(enabled=%s, cost_mode=%s)",
+      mask_topic_.c_str(), enabled_ ? "true" : "false", cost_mode_.c_str());
   }
 }
 
@@ -404,26 +416,41 @@ void MaskLayer::applyMask(
           static_cast<std::size_t>(mask_i);
         const int risk_value = static_cast<int>(mask_.data[mask_index]);
         if (risk_value > 0) {
-          const double scaled_cost =
-            static_cast<double>(mask_cost_value_) *
-            std::min(risk_value, 100) / 100.0;
-          layer_cost = static_cast<unsigned char>(
-            std::clamp(
-              static_cast<int>(std::lround(scaled_cost)),
-              1,
-              static_cast<int>(nav2_costmap_2d::MAX_NON_OBSTACLE)));
+          if (cost_mode_ == "lethal") {
+            layer_cost = nav2_costmap_2d::LETHAL_OBSTACLE;
+          } else {
+            const double scaled_cost =
+              static_cast<double>(mask_cost_value_) *
+              std::min(risk_value, 100) / 100.0;
+            layer_cost = static_cast<unsigned char>(
+              std::clamp(
+                static_cast<int>(std::lround(scaled_cost)),
+                1,
+                static_cast<int>(nav2_costmap_2d::MAX_NON_OBSTACLE)));
+          }
         }
       }
       costmap_[getIndex(i, j)] = layer_cost;
     }
   }
 
-  const unsigned char fuzzy_cost = fuzzy_engine_->applyFuzzy(
-    master_grid.getSizeInCellsX(), costmap_, start_i, start_j, end_i, end_j);
-  if (fuzzy_cost != nav2_costmap_2d::FREE_SPACE) {
+  unsigned char effective_cost = nav2_costmap_2d::FREE_SPACE;
+  if (cost_mode_ == "fuzzy") {
+    effective_cost = fuzzy_engine_->applyFuzzy(
+      master_grid.getSizeInCellsX(), costmap_, start_i, start_j, end_i, end_j);
+  } else {
+    for (int j = start_j; j < end_j; ++j) {
+      for (int i = start_i; i < end_i; ++i) {
+        effective_cost = std::max(
+          effective_cost, costmap_[getIndex(i, j)]);
+      }
+    }
+  }
+  if (effective_cost != nav2_costmap_2d::FREE_SPACE) {
     inflator_->inflateCosts(
       costmap_, start_i, start_j, end_i, end_j,
-      master_grid.getSizeInCellsX(), master_grid.getSizeInCellsY(), fuzzy_cost);
+      master_grid.getSizeInCellsX(), master_grid.getSizeInCellsY(),
+      effective_cost);
   }
   for (int j = start_j; j < end_j; ++j) {
     for (int i = start_i; i < end_i; ++i) {
@@ -441,7 +468,7 @@ void MaskLayer::applyMask(
 
   if (++update_count_ >= publish_divisor_) {
     std_msgs::msg::UInt8 message;
-    message.data = fuzzy_cost;
+    message.data = effective_cost;
     cost_publisher_->publish(message);
     update_count_ = 0;
   }
@@ -458,6 +485,19 @@ rcl_interfaces::msg::SetParametersResult MaskLayer::onParametersChanged(
       if (parameter.get_type() != rclcpp::ParameterType::PARAMETER_BOOL) {
         result.successful = false;
         result.reason = "mask_layer.enabled must be a boolean";
+        return result;
+      }
+    } else if (parameter.get_name() == name_ + ".cost_mode") {
+      if (
+        parameter.get_type() != rclcpp::ParameterType::PARAMETER_STRING ||
+        (
+          parameter.as_string() != "fuzzy" &&
+          parameter.as_string() != "fixed" &&
+          parameter.as_string() != "lethal"))
+      {
+        result.successful = false;
+        result.reason =
+          "mask_layer.cost_mode must be 'fuzzy', 'fixed', or 'lethal'";
         return result;
       }
     } else if (parameter.get_name() == name_ + ".task_urgency") {
@@ -485,6 +525,8 @@ rcl_interfaces::msg::SetParametersResult MaskLayer::onParametersChanged(
   for (const auto & parameter : parameters) {
     if (parameter.get_name() == name_ + ".enabled") {
       enabled_ = parameter.as_bool();
+    } else if (parameter.get_name() == name_ + ".cost_mode") {
+      cost_mode_ = parameter.as_string();
     } else if (parameter.get_name() == name_ + ".task_urgency") {
       task_urgency_ = static_cast<int>(parameter.as_int());
       fuzzy_recalculation_needed_ = true;

@@ -76,6 +76,7 @@ private:
   std::string mask_source_;
   std::string map_yaml_path_;
   std::string mask_topic_;
+  std::string cost_mode_;
   unsigned char mask_cost_value_;
   bool map_loaded_;
   bool fuzzy_recalculation_needed_;

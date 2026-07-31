@@ -11,6 +11,7 @@ defaults:
   launch_file: generator_planner_ab.launch.py
   repetitions: 3
   parameters:
+    cost_mode: fuzzy
     start_x: 6.0
     start_y: 0.0
     start_yaw: 0.0

@@ -1,0 +1,79 @@
+schema_version: 1
+study_id: semantic_costmap_ablation_pilot_v1
+description: >-
+  Controller-free synthetic comparison of fixed soft cost, lethal obstacle,
+  and the proposed fuzzy semantic cost against the embedded disabled baseline.
+output_root: /tmp/semantic_costmap_ablation_pilot_v1
+domain_id_start: 110
+
+defaults:
+  package: semantic_planning_experiments
+  launch_file: generator_planner_ab.launch.py
+  repetitions: 3
+  parameters:
+    start_x: 6.0
+    start_y: 0.0
+    start_yaw: 0.0
+    goal_x: 20.0
+    goal_y: 0.0
+    goal_yaw: 0.0
+    detection_active_duration_sec: 0.0
+    observation_hold_sec: 60.0
+    observation_decay_sec: 60.0
+    recovery_timeout_seconds: 0.0
+    task_urgency: 0
+    avoidance_level: 70.0
+
+scenarios:
+  - id: person_center_fixed_soft
+    research_question: RQ1
+    hypothesis: Fixed soft cost reduces risk crossing without making it impassable.
+    factors:
+      risk_source: synthetic_person
+      risk_position: route_center
+      method_group: fixed_soft_cost
+    parameters:
+      cost_mode: fixed
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+      - metric: semantic.semantic_crossing_length_m
+        operator: le
+        value: 2.5
+
+  - id: person_center_lethal
+    research_question: RQ1
+    hypothesis: Lethal conversion prevents risk-zone crossing when a detour exists.
+    factors:
+      risk_source: synthetic_person
+      risk_position: route_center
+      method_group: hard_obstacle
+    parameters:
+      cost_mode: lethal
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+      - metric: semantic.semantic_crossing_length_m
+        operator: le
+        value: 0.05
+
+  - id: person_center_proposed_fuzzy
+    research_question: RQ1
+    hypothesis: Fuzzy semantic cost avoids the risk while retaining soft traversability.
+    factors:
+      risk_source: synthetic_person
+      risk_position: route_center
+      method_group: proposed_fuzzy
+    parameters:
+      cost_mode: fuzzy
+      task_urgency: 0
+      avoidance_level: 70.0
+    acceptance:
+      - metric: semantic.semantic_crossing_length_m
+        operator: le
+        value: 0.05
+      - metric: semantic.minimum_semantic_clearance_m
+        operator: ge
+        value: 1.0

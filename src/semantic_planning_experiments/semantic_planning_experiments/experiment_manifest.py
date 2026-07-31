@@ -42,6 +42,7 @@ _METRIC_PATTERN = re.compile(
     r'\.[a-z][a-z0-9_]*$'
 )
 _ACCEPTANCE_OPERATORS = {'eq', 'ge', 'gt', 'le', 'lt'}
+_COST_MODES = {'fuzzy', 'fixed', 'lethal'}
 
 
 def _canonical_sha256(value) -> str:
@@ -74,6 +75,10 @@ def _validate_parameters(value, description: str) -> dict:
             raise ValueError(f'{description} has invalid parameter name: {name}')
         if name in _RESERVED_PARAMETERS:
             raise ValueError(f'{description} cannot override {name}')
+        if name == 'cost_mode' and parameter_value not in _COST_MODES:
+            raise ValueError(
+                f"{description}.cost_mode must be 'fuzzy', 'fixed', or 'lethal'"
+            )
         validated[name] = _require_scalar(
             parameter_value,
             f'{description}.{name}',

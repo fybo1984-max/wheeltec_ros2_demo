@@ -78,6 +78,7 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('planner_config_path', '')
         self.declare_parameter('output_path', '/tmp/semantic_planning_ab.json')
         self.declare_parameter('planner_id', 'GridBased')
+        self.declare_parameter('cost_mode', 'fuzzy')
         self.declare_parameter('task_urgency', 0)
         self.declare_parameter('avoidance_level', 70.0)
         self.declare_parameter('frame_id', 'map')
@@ -162,6 +163,10 @@ class SemanticPlanningAB(Node):
             Parameter(
                 'mask_layer.enabled',
                 value=enabled,
+            ).to_parameter_msg(),
+            Parameter(
+                'mask_layer.cost_mode',
+                value=str(self.get_parameter('cost_mode').value),
             ).to_parameter_msg(),
             Parameter(
                 'mask_layer.task_urgency',
@@ -361,10 +366,11 @@ class SemanticPlanningAB(Node):
     def _plan_condition(self, name: str, enabled: bool, mask) -> dict:
         self.get_logger().info(
             'planning condition=%s, mask_layer.enabled=%s, '
-            'task_urgency=%d, avoidance_level=%.1f'
+            'cost_mode=%s, task_urgency=%d, avoidance_level=%.1f'
             % (
                 name,
                 enabled,
+                self.get_parameter('cost_mode').value,
                 int(self.get_parameter('task_urgency').value),
                 float(self.get_parameter('avoidance_level').value),
             )
@@ -377,6 +383,10 @@ class SemanticPlanningAB(Node):
         metrics['planning_time_s'] = planned['planning_time_s']
         return {
             'mask_layer_enabled': enabled,
+            'cost_mode': (
+                self.get_parameter('cost_mode').value
+                if enabled else 'disabled'
+            ),
             'metrics': metrics,
             'path': [
                 {'x': point[0], 'y': point[1]}
@@ -404,6 +414,7 @@ class SemanticPlanningAB(Node):
         producer_config_value = str(
             self.get_parameter('mask_producer_config_path').value
         ).strip()
+        cost_mode = str(self.get_parameter('cost_mode').value).strip()
         task_urgency = int(self.get_parameter('task_urgency').value)
         avoidance_level = float(
             self.get_parameter('avoidance_level').value
@@ -419,6 +430,10 @@ class SemanticPlanningAB(Node):
             raise ValueError("mask_source must be 'file' or 'topic'")
         if topic_input_mode not in ('fixture', 'external'):
             raise ValueError("topic_input_mode must be 'fixture' or 'external'")
+        if cost_mode not in ('fuzzy', 'fixed', 'lethal'):
+            raise ValueError(
+                "cost_mode must be 'fuzzy', 'fixed', or 'lethal'"
+            )
         if not 0 <= task_urgency <= 10:
             raise ValueError('task_urgency must be in [0, 10]')
         if not 0.0 <= avoidance_level <= 100.0:
@@ -505,6 +520,7 @@ class SemanticPlanningAB(Node):
                 'planner_config_sha256': sha256_file(planner_config_path),
                 'planner_id': self.get_parameter('planner_id').value,
                 'semantic_layer_parameters': {
+                    'cost_mode': cost_mode,
                     'task_urgency': task_urgency,
                     'avoidance_level': avoidance_level,
                 },

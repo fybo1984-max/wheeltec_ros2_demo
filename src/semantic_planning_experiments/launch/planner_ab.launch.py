@@ -101,6 +101,7 @@ def generate_launch_description():
     goal_y = LaunchConfiguration('goal_y')
     goal_yaw = LaunchConfiguration('goal_yaw')
     settle_seconds = LaunchConfiguration('settle_seconds')
+    cost_mode = LaunchConfiguration('cost_mode')
     task_urgency = LaunchConfiguration('task_urgency')
     avoidance_level = LaunchConfiguration('avoidance_level')
     recovery_timeout_seconds = LaunchConfiguration(
@@ -187,6 +188,7 @@ def generate_launch_description():
             'goal_y': goal_y,
             'goal_yaw': goal_yaw,
             'settle_seconds': settle_seconds,
+            'cost_mode': cost_mode,
             'task_urgency': task_urgency,
             'avoidance_level': avoidance_level,
             'recovery_timeout_seconds': recovery_timeout_seconds,
@@ -256,6 +258,12 @@ def generate_launch_description():
         DeclareLaunchArgument('goal_y', default_value='0.0'),
         DeclareLaunchArgument('goal_yaw', default_value='0.0'),
         DeclareLaunchArgument('settle_seconds', default_value='1.5'),
+        DeclareLaunchArgument(
+            'cost_mode',
+            default_value='fuzzy',
+            choices=['fuzzy', 'fixed', 'lethal'],
+            description='Semantic cost transform used for the enabled condition.',
+        ),
         DeclareLaunchArgument(
             'task_urgency',
             default_value='0',

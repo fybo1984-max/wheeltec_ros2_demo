@@ -5,13 +5,20 @@ navigation. It ports the core `concres/semantic_costmap_plugin` layer to the
 ROS 2 Humble/Nav2 API used by this workspace.
 
 The layer reads a normal Nav2 map YAML and treats occupied mask pixels as
-traversable semantic zones. It applies a Sugeno fuzzy cost controlled by:
+semantic zones. `cost_mode` selects the transformation:
+
+- `fuzzy` (default): Sugeno fuzzy soft cost;
+- `fixed`: risk-scaled soft cost without policy inference;
+- `lethal`: hard-obstacle conversion for paper comparison only.
+
+The fuzzy mode is controlled by:
 
 - `task_urgency` (`0..10`): higher values make crossing a zone cheaper;
 - `avoidance_level` (`0..100`): higher values make crossing a zone costlier.
 
-The mask cost is a soft cost (`0..252`), not a lethal obstacle. The existing
-Nav2 planner and controller therefore remain unchanged.
+Operational semantic navigation keeps the default soft `fuzzy` mode
+(`0..252`). `lethal` exists only as a controlled experimental baseline. The
+existing Nav2 planner and controller remain unchanged.
 
 `mask_source` selects either a Nav2 map YAML (`file`) or a live
 `nav_msgs/OccupancyGrid` (`topic`). Topic values in `[1, 100]` are scaled
@@ -28,6 +35,7 @@ ros2 launch largemodel largemodel_control.launch.py \
   use_nav:=true \
   semantic_costmap_enabled:=true \
   semantic_mask_source:=file \
+  semantic_cost_mode:=fuzzy \
   semantic_task_urgency:=0 \
   semantic_avoidance_level:=70.0
 ```
@@ -46,7 +54,8 @@ zone is an experiment template, not a validated industrial safety boundary.
 - Upstream license: Apache-2.0
 - Local changes: ROS 2 Humble compatibility, strict map-load and parameter
   validation, unknown/obstacle-preserving costmap merge, WHEELTEC
-  configuration, and reduced behavior-focused tests.
+  configuration, fixed/lethal paper baselines, and reduced behavior-focused
+  tests.
 
 See `SEMANTIC_NAVIGATION.md` at the workspace root for the staged integration
 plan and the assessment of `e-cagan/semantic-slam-workspace`.

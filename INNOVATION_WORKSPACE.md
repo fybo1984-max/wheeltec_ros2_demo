@@ -78,9 +78,9 @@ ros2 launch largemodel largemodel_control.launch.py \
 
 - 独立构建成功：52 个依赖及目标包完成。
 - 固定语音指令和点位持久化测试：81 项通过。
-- 语义 costmap 插件：10 个 CTest 全部通过，其中 11 个行为测试通过。
+- 语义 costmap 插件：10 个 CTest 全部通过，其中 14 个行为测试通过。
 - 动态语义 mask：12 项测试通过，其中 9 项投影、衰减和栅格化行为测试通过。
-- 规划器级 A/B 实验包：24 项测试通过，其中 21 项地图坐标、动态栅格转换、
+- 规划器级 A/B 实验包：26 项测试通过，其中 23 项地图坐标、动态栅格转换、
   路径指标、重复试验统计、论文 manifest 和结果验收行为测试
   通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
 - 默认模板路线的两次离线规划得到完全相同的路径几何：基线穿越语义区约
@@ -106,6 +106,8 @@ ros2 launch largemodel largemodel_control.launch.py \
   ROS domain 90–100；计划生成器固定为无控制器 launch，不执行命令。
 - 论文结果验收器对每个 trial 输出通过、失败、缺失或无效状态；未采集报告的
   空白 Pilot 计划已正确识别为 11 项缺失并返回非零状态。
+- 论文方法消融 manifest 已展开为固定软代价、硬障碍和完整模糊语义 3 个场景、
+  9 个 trial，使用 ROS domain 110–118；每项报告内含关闭语义层 baseline。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。

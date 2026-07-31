@@ -13,6 +13,12 @@ process:
 1. baseline with `mask_layer.enabled=false`;
 2. semantic condition with `mask_layer.enabled=true`.
 
+The semantic condition accepts `cost_mode:=fuzzy`, `fixed`, or `lethal`.
+`fuzzy` is the proposed policy-aware soft-cost method, `fixed` removes policy
+inference while retaining risk-scaled soft costs, and `lethal` is the hard
+obstacle comparison. Every report records the selected mode; the repeated
+report summarizer rejects mixed modes.
+
 `mask_source:=file` is the default. `mask_source:=topic` converts the same
 trinary mask into a `nav_msgs/OccupancyGrid`, waits for the semantic layer
 subscriber, and publishes it with reliable, transient-local QoS. This validates
@@ -129,6 +135,18 @@ The plan records research questions, factors, repetitions, numeric acceptance
 criteria, isolated domains, output paths, and command argument arrays. Only the
 two controller-free experiment launch files are allowed. The planner does not
 execute generated commands.
+
+Generate the method-ablation plan:
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_ablation_manifest.yaml \
+  --output /tmp/semantic_paper_ablation_plan.json
+```
+
+It expands fixed soft cost, lethal obstacle, and proposed fuzzy cost into nine
+controller-free trials. Each trial also records the embedded disabled semantic
+baseline.
 
 After the planned reports exist, audit every numeric criterion:
 

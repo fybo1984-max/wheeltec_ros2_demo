@@ -57,6 +57,7 @@ global_costmap:
         mask_source: "file"
         map_yaml_path: MASK_YAML_PATH
         mask_topic: "/semantic_mask"
+        cost_mode: "fuzzy"
         mask_cost_value: 125
         task_urgency: 0
         avoidance_level: 70.0

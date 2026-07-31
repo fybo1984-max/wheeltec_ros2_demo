@@ -53,7 +53,11 @@ protected:
     layered_costmap_->resizeMap(10, 10, 0.1, 0.0, 0.0);
   }
 
-  void initializeLayer(const std::string & source)
+  void initializeLayer(
+    const std::string & source,
+    const std::string & cost_mode = "fuzzy",
+    int task_urgency = 0,
+    double avoidance_level = 0.0)
   {
     const std::string name = "mask_layer";
     node_->declare_parameter(name + ".enabled", true);
@@ -62,9 +66,10 @@ protected:
       name + ".map_yaml_path",
       std::string(TEST_FIXTURE_DIR) + "/test_mask.yaml");
     node_->declare_parameter(name + ".mask_topic", "/test_semantic_mask");
+    node_->declare_parameter(name + ".cost_mode", cost_mode);
     node_->declare_parameter(name + ".mask_cost_value", 100);
-    node_->declare_parameter(name + ".task_urgency", 0);
-    node_->declare_parameter(name + ".avoidance_level", 0.0);
+    node_->declare_parameter(name + ".task_urgency", task_urgency);
+    node_->declare_parameter(name + ".avoidance_level", avoidance_level);
     node_->declare_parameter(name + ".inflation_radius", 0.0);
     node_->declare_parameter(name + ".cost_scaling_factor", 2.0);
     node_->declare_parameter(name + ".inflate_unknown", false);
@@ -153,6 +158,47 @@ TEST_F(MaskLayerTest, AcceptsRiskWeightedMaskFromTopic)
   EXPECT_EQ(master->getCost(4, 4), nav2_costmap_2d::FREE_SPACE);
   executor.remove_node(publisher_node);
   executor.remove_node(node_->get_node_base_interface());
+}
+
+TEST_F(MaskLayerTest, FixedModeDoesNotApplyFuzzyPolicy)
+{
+  initializeLayer("file", "fixed", 10, 0.0);
+  auto * master = layered_costmap_->getCostmap();
+  std::fill_n(
+    master->getCharMap(),
+    master->getSizeInCellsX() * master->getSizeInCellsY(),
+    nav2_costmap_2d::FREE_SPACE);
+
+  layer_->updateCosts(*master, 0, 0, 10, 10);
+
+  EXPECT_EQ(master->getCost(5, 4), 100);
+}
+
+TEST_F(MaskLayerTest, LethalModeMarksRiskWithoutClearingUnknown)
+{
+  initializeLayer("file", "lethal");
+  auto * master = layered_costmap_->getCostmap();
+  std::fill_n(
+    master->getCharMap(),
+    master->getSizeInCellsX() * master->getSizeInCellsY(),
+    nav2_costmap_2d::FREE_SPACE);
+  master->setCost(0, 0, nav2_costmap_2d::NO_INFORMATION);
+
+  layer_->updateCosts(*master, 0, 0, 10, 10);
+
+  EXPECT_EQ(master->getCost(0, 0), nav2_costmap_2d::NO_INFORMATION);
+  EXPECT_EQ(master->getCost(5, 4), nav2_costmap_2d::LETHAL_OBSTACLE);
+}
+
+TEST_F(MaskLayerTest, RejectsInvalidCostModeUpdate)
+{
+  initializeLayer("file");
+
+  const auto result = node_->set_parameter(
+    rclcpp::Parameter("mask_layer.cost_mode", "unsupported"));
+
+  EXPECT_FALSE(result.successful);
+  EXPECT_NE(result.reason.find("cost_mode"), std::string::npos);
 }
 
 }  // namespace

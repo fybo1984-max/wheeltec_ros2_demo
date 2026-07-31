@@ -7,6 +7,8 @@
 - 当前范围：无控制器合成 RGB-D 软件链路
 - 当前 manifest：
   `src/semantic_planning_experiments/config/paper_pilot_manifest.yaml`
+- 消融 manifest：
+  `src/semantic_planning_experiments/config/paper_ablation_manifest.yaml`
 - 当前结果不能替代真实 RGB-D 和实车正式实验。
 
 ## 研究问题
@@ -53,17 +55,16 @@ RQ4 尚未进入 Pilot v1，将在异常注入阶段加入。
 
 ## 方法组
 
-Pilot v1 当前包含：
+当前实验工具包含：
 
 1. `baseline`：同一 Nav2 planner，关闭语义层；
-2. `semantic`：同一 Nav2 planner，开启动态语义软成本；
-3. `recovered_after_mask_clear`：风险清空后保持语义层开启再次规划。
+2. `fixed`：风险强度映射为固定软成本，不使用任务策略模糊推理；
+3. `lethal`：将相同风险区域作为致命障碍，仅用于论文对照；
+4. `fuzzy`：动态风险强度与任务策略共同决定软成本；
+5. `recovered_after_mask_clear`：风险清空后保持语义层开启再次规划。
 
-正式论文还需要增加：
-
-1. hard obstacle：将相同风险区域作为致命障碍；
-2. fixed semantic cost：固定软成本，不使用任务策略模糊推理；
-3. proposed method：动态风险强度、策略参数和时间衰减的完整方法。
+每个启用语义层的报告均内含同进程、同输入的 `baseline`，并记录 `cost_mode`。
+重复试验汇总禁止混合不同模式。
 
 ## Pilot v1 场景
 
@@ -76,6 +77,26 @@ Pilot v1 当前包含：
 
 展开后共 11 个 trial，使用独立 ROS domain 90–100。manifest 只生成计划，
 不会执行 launch。
+
+## 方法消融 Pilot v1
+
+| 场景 | 模式 | 重复数 | 对照目的 |
+| --- | --- | ---: | --- |
+| `person_center_fixed_soft` | `fixed` | 3 | 去除模糊策略推理 |
+| `person_center_lethal` | `lethal` | 3 | 硬障碍上界对照 |
+| `person_center_proposed_fuzzy` | `fuzzy` | 3 | 完整软语义方法 |
+
+消融计划共 9 个 trial，使用 ROS domain 110–118。每个 trial 同时产生关闭语义
+层的 baseline，因此可比较无语义、固定软代价、硬障碍和完整模糊语义四组。
+计划生成命令：
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_ablation_manifest.yaml \
+  --output /tmp/semantic_paper_ablation_plan.json
+```
+
+该命令仍只生成计划，不执行 Nav2 launch。
 
 生成报告后，逐 trial 应用 manifest 中的数值验收条件：
 

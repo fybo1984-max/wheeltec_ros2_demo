@@ -45,6 +45,7 @@ def generate_launch_description():
     )
     domain_id = LaunchConfiguration('domain_id')
     output_path = LaunchConfiguration('output_path')
+    cost_mode = LaunchConfiguration('cost_mode')
     task_urgency = LaunchConfiguration('task_urgency')
     avoidance_level = LaunchConfiguration('avoidance_level')
     detection_active_duration = LaunchConfiguration(
@@ -64,6 +65,12 @@ def generate_launch_description():
             'output_path',
             default_value='/tmp/semantic_generator_planning_ab.json',
             description='Controller-free generator integration report.',
+        ),
+        DeclareLaunchArgument(
+            'cost_mode',
+            default_value='fuzzy',
+            choices=['fuzzy', 'fixed', 'lethal'],
+            description='Semantic cost transform for the enabled condition.',
         ),
         DeclareLaunchArgument(
             'task_urgency',
@@ -153,6 +160,7 @@ def generate_launch_description():
                 'producer_observation_hold_sec': observation_hold,
                 'producer_observation_decay_sec': observation_decay,
                 'output_path': output_path,
+                'cost_mode': cost_mode,
                 'task_urgency': task_urgency,
                 'avoidance_level': avoidance_level,
                 'recovery_timeout_seconds': recovery_timeout,

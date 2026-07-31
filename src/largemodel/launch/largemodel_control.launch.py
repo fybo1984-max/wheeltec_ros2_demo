@@ -43,6 +43,7 @@ def generate_launch_description():
     nav_progress_timeout = LaunchConfiguration('nav_progress_timeout')
     semantic_costmap_enabled = LaunchConfiguration('semantic_costmap_enabled')
     semantic_mask_source = LaunchConfiguration('semantic_mask_source')
+    semantic_cost_mode = LaunchConfiguration('semantic_cost_mode')
     semantic_task_urgency = LaunchConfiguration('semantic_task_urgency')
     semantic_avoidance_level = LaunchConfiguration('semantic_avoidance_level')
     nav_controller_frequency_arg = DeclareLaunchArgument(
@@ -85,6 +86,12 @@ def generate_launch_description():
         default_value='file',
         choices=['file', 'topic'],
         description='语义mask来源：静态文件file或动态OccupancyGrid话题topic'
+    )
+    semantic_cost_mode_arg = DeclareLaunchArgument(
+        'semantic_cost_mode',
+        default_value='fuzzy',
+        choices=['fuzzy', 'fixed', 'lethal'],
+        description='语义成本模式；正常导航使用fuzzy，fixed和lethal仅用于论文对照'
     )
     semantic_task_urgency_arg = DeclareLaunchArgument(
         'semantic_task_urgency',
@@ -160,6 +167,8 @@ def generate_launch_description():
                 semantic_costmap_enabled,
             'global_costmap.global_costmap.ros__parameters.mask_layer.mask_source':
                 semantic_mask_source,
+            'global_costmap.global_costmap.ros__parameters.mask_layer.cost_mode':
+                semantic_cost_mode,
             'global_costmap.global_costmap.ros__parameters.mask_layer.task_urgency':
                 semantic_task_urgency,
             'global_costmap.global_costmap.ros__parameters.mask_layer.avoidance_level':
@@ -237,6 +246,7 @@ def generate_launch_description():
         nav_progress_timeout_arg,
         semantic_costmap_enabled_arg,
         semantic_mask_source_arg,
+        semantic_cost_mode_arg,
         semantic_task_urgency_arg,
         semantic_avoidance_level_arg,
         model_server,          #启动模型服务节点

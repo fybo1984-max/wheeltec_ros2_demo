@@ -48,6 +48,7 @@ def _report(planning_time: float = 0.1) -> dict:
             'topic_input_mode': 'external',
             'mask_topic_qos': {'reliability': 'reliable'},
             'semantic_layer_parameters': {
+                'cost_mode': 'fuzzy',
                 'task_urgency': 0,
                 'avoidance_level': 70.0,
             },
@@ -106,6 +107,17 @@ def test_summary_rejects_incomparable_inputs(tmp_path: Path):
     first_report = _report()
     second_report = _report()
     second_report['inputs']['goal']['x'] = 3.0
+    first = _write_report(tmp_path / 'first.json', first_report)
+    second = _write_report(tmp_path / 'second.json', second_report)
+
+    with pytest.raises(ValueError, match='not comparable'):
+        summarize_reports([first, second])
+
+
+def test_summary_rejects_mixed_cost_modes(tmp_path: Path):
+    first_report = _report()
+    second_report = _report()
+    second_report['inputs']['semantic_layer_parameters']['cost_mode'] = 'fixed'
     first = _write_report(tmp_path / 'first.json', first_report)
     second = _write_report(tmp_path / 'second.json', second_report)
 

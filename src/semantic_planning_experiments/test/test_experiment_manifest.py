@@ -35,6 +35,7 @@ def _manifest() -> dict:
             'launch_file': 'generator_planner_ab.launch.py',
             'repetitions': 2,
             'parameters': {
+                'cost_mode': 'fuzzy',
                 'start_x': 6.0,
                 'goal_x': 20.0,
             },
@@ -91,6 +92,7 @@ def test_manifest_expands_deterministic_safe_trial_argv(tmp_path: Path):
         'avoidance_level:=100.0',
     ]
     assert 'domain_id:=90' in first['command_argv']
+    assert 'cost_mode:=fuzzy' in first['command_argv']
     assert 'output_path:=/tmp/paper_pilot/center_safety/trial_001.json' in (
         first['command_argv']
     )
@@ -120,4 +122,13 @@ def test_manifest_rejects_ros_domain_overflow(tmp_path: Path):
     path = _write_manifest(tmp_path / 'manifest.yaml', manifest)
 
     with pytest.raises(ValueError, match='domains exceed'):
+        load_manifest(path)
+
+
+def test_manifest_rejects_invalid_cost_mode(tmp_path: Path):
+    manifest = _manifest()
+    manifest['defaults']['parameters']['cost_mode'] = 'unsupported'
+    path = _write_manifest(tmp_path / 'manifest.yaml', manifest)
+
+    with pytest.raises(ValueError, match='cost_mode'):
         load_manifest(path)
