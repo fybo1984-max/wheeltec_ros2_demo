@@ -132,6 +132,14 @@ def _validate_parameters(value, description: str) -> dict:
             or parameter_value > 20
         ):
             raise ValueError(f'{description}.{name} must be in [1, 20]')
+        if name == 'synthetic_detection_class_id' and (
+            not isinstance(parameter_value, str)
+            or not parameter_value
+            or parameter_value != parameter_value.strip()
+        ):
+            raise ValueError(
+                f'{description}.{name} must be a nonempty trimmed label'
+            )
         if name == 'synthetic_detection_publish_every_n_frames' and (
             isinstance(parameter_value, bool)
             or not isinstance(parameter_value, int)

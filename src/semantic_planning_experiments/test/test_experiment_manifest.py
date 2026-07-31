@@ -140,6 +140,7 @@ def test_manifest_rejects_invalid_cost_mode(tmp_path: Path):
         ('synthetic_depth_invalid_fraction', 1.0),
         ('synthetic_person_count', 0),
         ('synthetic_detection_publish_every_n_frames', 0),
+        ('synthetic_detection_class_id', ' '),
         ('risk_radius_scale', 0.0),
     ],
 )

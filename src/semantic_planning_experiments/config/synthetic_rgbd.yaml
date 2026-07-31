@@ -12,6 +12,7 @@ synthetic_rgbd_source:
     depth_invalid_fraction: 0.0
     random_seed: 42
     detection_score: 0.95
+    detection_class_id: person
     person_count: 1
     detection_center_x_fraction: 0.5
     detection_center_y_fraction: 0.5

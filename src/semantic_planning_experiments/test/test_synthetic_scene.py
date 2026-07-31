@@ -28,6 +28,7 @@ def _scene() -> SyntheticSceneSpec:
         depth_noise_std_m=0.0,
         depth_invalid_fraction=0.0,
         random_seed=42,
+        detection_class_id='person',
         person_count=1,
         center_x_fraction=0.5,
         center_y_fraction=0.5,
@@ -89,6 +90,10 @@ def test_invalid_depth_fraction_produces_bounded_sparse_frame():
         (
             replace(_scene(), detection_publish_every_n_frames=0),
             'publish_every',
+        ),
+        (
+            replace(_scene(), detection_class_id=' '),
+            'detection_class_id',
         ),
     ],
 )

@@ -107,6 +107,9 @@ def generate_launch_description():
     producer_detection_score = LaunchConfiguration(
         'producer_detection_score'
     )
+    producer_detection_class_id = LaunchConfiguration(
+        'producer_detection_class_id'
+    )
     producer_person_count = LaunchConfiguration('producer_person_count')
     producer_center_x = LaunchConfiguration(
         'producer_detection_center_x_fraction'
@@ -216,6 +219,7 @@ def generate_launch_description():
             'producer_depth_invalid_fraction': producer_depth_invalid,
             'producer_random_seed': producer_random_seed,
             'producer_detection_score': producer_detection_score,
+            'producer_detection_class_id': producer_detection_class_id,
             'producer_person_count': producer_person_count,
             'producer_detection_center_x_fraction': producer_center_x,
             'producer_detection_center_y_fraction': producer_center_y,
@@ -312,6 +316,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'producer_detection_score',
             default_value='-1.0',
+        ),
+        DeclareLaunchArgument(
+            'producer_detection_class_id',
+            default_value='',
         ),
         DeclareLaunchArgument('producer_person_count', default_value='-1'),
         DeclareLaunchArgument(

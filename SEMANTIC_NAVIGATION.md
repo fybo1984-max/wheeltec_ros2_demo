@@ -101,7 +101,7 @@ colcon test-result \
 未知区、不降低既有致命障碍”的合并边界。动态生成包 13 项测试通过，其中
 10 项行为测试覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减、风险
 半径缩放和地图栅格化。
-规划器实验包 37 项测试通过，其中 34 项行为测试覆盖 Nav2 PGM 坐标转换、
+规划器实验包 39 项测试通过，其中 36 项行为测试覆盖 Nav2 PGM 坐标转换、
 OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、语义边界间距、
 指标差值、输入哈希、可比较性校验、统计汇总、路径重复性检测和论文 manifest
 安全展开及逐 trial 结果验收。
@@ -115,9 +115,14 @@ OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、�
 - 输入：`/map` 和检测相机到 `map` 的 TF；
 - 输出：`/semantic_mask`（`nav_msgs/OccupancyGrid`，风险值 `0..100`）。
 
-默认仅处理 `person`，风险值为 100，半径为 1.2 m。观测会按空间距离合并，
-保持 0.8 s 后在 1.2 s 内线性衰减。易碎品货区、固定装卸区等持久化区域仍由
-静态 mask 表达。
+默认仓储风险档案接受检测器的精确标签 `person`、`forklift`、`pallet` 和
+`fragile_box`，初始风险值/半径分别为 `100/1.2 m`、`95/1.8 m`、
+`65/0.8 m`、`85/1.0 m`。这些是待实验标定的软代价参数，不是识别能力声明
+或工业安全阈值。标准 COCO 模型通常只有 `person`；其余类别需要自定义仓储
+模型或上游标签适配器，模型权重不进入 Git。
+
+观测会按空间距离合并，保持 0.8 s 后在 1.2 s 内线性衰减。易碎品货区、固定
+装卸区等持久化区域仍由静态 mask 表达。
 
 生成节点默认 `enabled:=false`，并且默认拒绝未经明确确认的深度输入。
 只有确认深度已经配准到 YOLO 使用的彩色图后，才允许：
@@ -361,6 +366,16 @@ trial 通过才返回成功，缺失、失败、dirty revision 和不安全报�
 同步偏移和置信度边界。干净提交 `e47a105` 已各完成 1 个无控制器 smoke
 trial，均成功规划且风险区穿越为 0；其余 trial 未执行。计划生成命令本身
 不会启动 Nav2。
+
+仓储对象类别 `paper_object_class_manifest.yaml` 生成 `person`、`forklift`、
+`pallet`、`fragile_box` 各 3 次、共 12 个计划 trial（ROS domain
+160–171）。它验证检测后的风险档案和路径响应，不测量真实检测精度：
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_object_class_manifest.yaml \
+  --output /tmp/semantic_paper_object_class_plan.json
+```
 
 ## 后续阶段与验收
 

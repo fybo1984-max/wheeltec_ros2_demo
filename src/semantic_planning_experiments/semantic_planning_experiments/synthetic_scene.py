@@ -22,7 +22,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class SyntheticSceneSpec:
-    """Validated parameters for deterministic person detections and depth."""
+    """Validated parameters for deterministic object detections and depth."""
 
     width: int
     height: int
@@ -30,6 +30,7 @@ class SyntheticSceneSpec:
     depth_noise_std_m: float
     depth_invalid_fraction: float
     random_seed: int
+    detection_class_id: str
     person_count: int
     center_x_fraction: float
     center_y_fraction: float
@@ -54,6 +55,11 @@ class SyntheticSceneSpec:
             raise ValueError('depth_invalid_fraction must be in [0, 1)')
         if self.person_count < 1 or self.person_count > 20:
             raise ValueError('person_count must be in [1, 20]')
+        if (
+            not self.detection_class_id
+            or self.detection_class_id != self.detection_class_id.strip()
+        ):
+            raise ValueError('detection_class_id must be a nonempty trimmed label')
         for name, value in (
             ('center_x_fraction', self.center_x_fraction),
             ('center_y_fraction', self.center_y_fraction),

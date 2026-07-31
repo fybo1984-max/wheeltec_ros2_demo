@@ -81,7 +81,7 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 语义 costmap 插件：10 个 CTest 全部通过，其中 14 个行为测试通过。
 - 动态语义 mask：13 项测试通过，其中 10 项投影、衰减、半径缩放和栅格化
   行为测试通过。
-- 规划器级 A/B 实验包：37 项测试通过，其中 34 项地图坐标、动态栅格转换、
+- 规划器级 A/B 实验包：39 项测试通过，其中 36 项地图坐标、动态栅格转换、
   路径指标、重复试验统计、论文 manifest 和结果验收行为测试
   通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
 - 默认模板路线的两次离线规划得到完全相同的路径几何：基线穿越语义区约
@@ -117,6 +117,10 @@ ros2 launch largemodel largemodel_control.launch.py \
   ROS domain 120–137 和 140–157；随机种子、深度噪声、无效深度、检测丢帧、
   时间偏移、人员数量及风险半径缩放均写入计划。干净提交 `e47a105` 已各完成
   1 个无控制器 smoke trial，均成功规划且风险区穿越为 0；各余 17 项未执行。
+- 动态风险档案现接受 `person`、`forklift`、`pallet`、`fragile_box` 精确
+  标签；对象类别 manifest 包含 4 个场景、12 个计划 trial，使用 ROS domain
+  160–171。除 `person` 外的真实识别仍需自定义仓储模型，当前合成试验不声称
+  已完成真实 YOLO 识别。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。

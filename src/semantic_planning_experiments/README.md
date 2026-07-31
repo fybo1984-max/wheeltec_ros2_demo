@@ -25,15 +25,29 @@ subscriber, and publishes it with reliable, transient-local QoS. This validates
 the live topic transport without starting a camera or detector.
 
 `generator_planner_ab.launch.py` goes one step further: a deterministic
-synthetic CameraInfo, registered 16UC1 depth image, and person Detection2D pass
+synthetic CameraInfo, registered 16UC1 depth image, and object Detection2D pass
 through the real `semantic_mask_generator`. The runner consumes that external
 topic and records the generated mask geometry before planning.
 
 Synthetic scenario arguments cover depth, seeded depth noise, invalid-depth
-fraction, random seed, confidence, person count and spacing, image position,
-detection-frame stride, timestamp offset, and semantic-radius scale. The runner
-records all values in `mask_producer_runtime_parameters`, so the comparison
-fingerprint rejects trials with different injections.
+fraction, random seed, confidence, exact class label, detection count and
+spacing, image position, detection-frame stride, timestamp offset, and
+semantic-radius scale. The runner records all values in
+`mask_producer_runtime_parameters`, so the comparison fingerprint rejects
+trials with different injections.
+
+Select one of the configured warehouse risk labels for a controller-free
+class-profile check:
+
+```bash
+ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
+  domain_id:=159 synthetic_detection_class_id:=fragile_box \
+  output_path:=/tmp/semantic_fragile_box_ab.json
+```
+
+This only synthesizes a detector result. It does not prove that an
+off-the-shelf detector recognizes `forklift`, `pallet`, or `fragile_box`;
+those labels require matching custom detector output.
 
 The global costmap is cleared and allowed to update between conditions.
 `cache_obstacle_heuristic` is disabled so the second result cannot reuse an
@@ -168,6 +182,18 @@ ros2 run semantic_planning_experiments semantic_experiment_plan \
 ```
 
 Each expands six scenarios into 18 planned trials without executing them.
+
+Generate the warehouse object-class profile plan:
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_object_class_manifest.yaml \
+  --output /tmp/semantic_paper_object_class_plan.json
+```
+
+It expands `person`, `forklift`, `pallet`, and `fragile_box` into 12 planned
+trials. These synthetic labels test the downstream risk profiles only; they do
+not measure detector precision or recall.
 
 After the planned reports exist, audit every numeric criterion:
 

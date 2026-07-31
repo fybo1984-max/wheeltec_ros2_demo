@@ -65,6 +65,9 @@ def generate_launch_description():
     synthetic_detection_score = LaunchConfiguration(
         'synthetic_detection_score'
     )
+    synthetic_detection_class_id = LaunchConfiguration(
+        'synthetic_detection_class_id'
+    )
     synthetic_person_count = LaunchConfiguration('synthetic_person_count')
     synthetic_center_x = LaunchConfiguration(
         'synthetic_detection_center_x_fraction'
@@ -144,6 +147,11 @@ def generate_launch_description():
             'synthetic_detection_score',
             default_value='0.95',
         ),
+        DeclareLaunchArgument(
+            'synthetic_detection_class_id',
+            default_value='person',
+            description='Exact semantic class label emitted by the synthetic detector.',
+        ),
         DeclareLaunchArgument('synthetic_person_count', default_value='1'),
         DeclareLaunchArgument(
             'synthetic_detection_center_x_fraction',
@@ -199,6 +207,7 @@ def generate_launch_description():
                     'depth_invalid_fraction': synthetic_depth_invalid,
                     'random_seed': synthetic_random_seed,
                     'detection_score': synthetic_detection_score,
+                    'detection_class_id': synthetic_detection_class_id,
                     'person_count': synthetic_person_count,
                     'detection_center_x_fraction': synthetic_center_x,
                     'detection_center_y_fraction': synthetic_center_y,
@@ -243,6 +252,8 @@ def generate_launch_description():
                 'producer_depth_invalid_fraction': synthetic_depth_invalid,
                 'producer_random_seed': synthetic_random_seed,
                 'producer_detection_score': synthetic_detection_score,
+                'producer_detection_class_id':
+                    synthetic_detection_class_id,
                 'producer_person_count': synthetic_person_count,
                 'producer_detection_center_x_fraction': synthetic_center_x,
                 'producer_detection_center_y_fraction': synthetic_center_y,

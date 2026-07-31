@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Publish deterministic registered RGB-D and person detections for tests."""
+"""Publish deterministic registered RGB-D and object detections for tests."""
 
 import time
 
@@ -47,6 +47,7 @@ class SyntheticRGBDSource(Node):
         self.declare_parameter('depth_invalid_fraction', 0.0)
         self.declare_parameter('random_seed', 42)
         self.declare_parameter('detection_score', 0.95)
+        self.declare_parameter('detection_class_id', 'person')
         self.declare_parameter('person_count', 1)
         self.declare_parameter('detection_center_x_fraction', 0.5)
         self.declare_parameter('detection_center_y_fraction', 0.5)
@@ -74,6 +75,9 @@ class SyntheticRGBDSource(Node):
                 self.get_parameter('depth_invalid_fraction').value
             ),
             random_seed=int(self.get_parameter('random_seed').value),
+            detection_class_id=str(
+                self.get_parameter('detection_class_id').value
+            ),
             person_count=int(self.get_parameter('person_count').value),
             center_x_fraction=float(
                 self.get_parameter('detection_center_x_fraction').value
@@ -165,7 +169,7 @@ class SyntheticRGBDSource(Node):
         detection_messages = []
         for center_x, center_y in self._scene.detection_centers_px():
             result = ObjectHypothesisWithPose()
-            result.hypothesis.class_id = 'person'
+            result.hypothesis.class_id = self._scene.detection_class_id
             result.hypothesis.score = self._score
             detection = Detection2D()
             detection.header.stamp = detection_stamp

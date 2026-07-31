@@ -80,6 +80,7 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('producer_depth_invalid_fraction', -1.0)
         self.declare_parameter('producer_random_seed', -1)
         self.declare_parameter('producer_detection_score', -1.0)
+        self.declare_parameter('producer_detection_class_id', '')
         self.declare_parameter('producer_person_count', -1)
         self.declare_parameter(
             'producer_detection_center_x_fraction',
@@ -618,6 +619,11 @@ class SemanticPlanningAB(Node):
                         'detection_score': float(
                             self.get_parameter(
                                 'producer_detection_score'
+                            ).value
+                        ),
+                        'detection_class_id': str(
+                            self.get_parameter(
+                                'producer_detection_class_id'
                             ).value
                         ),
                         'person_count': int(

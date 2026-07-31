@@ -1,0 +1,96 @@
+schema_version: 1
+study_id: semantic_costmap_object_class_pilot_v1
+description: >-
+  Controller-free synthetic class-profile matrix for warehouse semantic risk
+  categories. Synthetic labels validate downstream cost behavior, not detector
+  recognition accuracy.
+output_root: /tmp/semantic_costmap_object_class_pilot_v1
+domain_id_start: 160
+
+defaults:
+  package: semantic_planning_experiments
+  launch_file: generator_planner_ab.launch.py
+  repetitions: 3
+  parameters:
+    cost_mode: fuzzy
+    task_urgency: 0
+    avoidance_level: 70.0
+    start_x: 6.0
+    start_y: 0.0
+    start_yaw: 0.0
+    goal_x: 20.0
+    goal_y: 0.0
+    goal_yaw: 0.0
+    detection_active_duration_sec: 0.0
+    observation_hold_sec: 60.0
+    observation_decay_sec: 60.0
+    recovery_timeout_seconds: 0.0
+    synthetic_depth_m: 2.0
+    synthetic_depth_noise_std_m: 0.0
+    synthetic_depth_invalid_fraction: 0.0
+    synthetic_random_seed: 42
+    synthetic_detection_score: 0.95
+    synthetic_person_count: 1
+    synthetic_detection_center_x_fraction: 0.5
+    synthetic_detection_center_y_fraction: 0.5
+    synthetic_person_spacing_y_fraction: 0.2
+    synthetic_detection_publish_every_n_frames: 1
+    synthetic_detection_timestamp_offset_sec: 0.0
+    risk_radius_scale: 1.0
+
+scenarios:
+  - id: person_profile
+    research_question: RQ5
+    hypothesis: The person profile produces a feasible semantic detour.
+    factors:
+      semantic_class: person
+      risk_value: 100
+      risk_radius_m: 1.2
+    parameters:
+      synthetic_detection_class_id: person
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: forklift_profile
+    research_question: RQ5
+    hypothesis: The larger forklift profile produces a feasible semantic detour.
+    factors:
+      semantic_class: forklift
+      risk_value: 95
+      risk_radius_m: 1.8
+    parameters:
+      synthetic_detection_class_id: forklift
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: pallet_profile
+    research_question: RQ5
+    hypothesis: The pallet profile produces a feasible risk-aware path.
+    factors:
+      semantic_class: pallet
+      risk_value: 65
+      risk_radius_m: 0.8
+    parameters:
+      synthetic_detection_class_id: pallet
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: fragile_box_profile
+    research_question: RQ5
+    hypothesis: The fragile-box profile produces a feasible semantic detour.
+    factors:
+      semantic_class: fragile_box
+      risk_value: 85
+      risk_radius_m: 1.0
+    parameters:
+      synthetic_detection_class_id: fragile_box
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0

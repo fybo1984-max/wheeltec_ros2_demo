@@ -20,7 +20,9 @@ semantic_mask_generator:
     merge_distance_m: 0.4
     maximum_observations: 200
     publish_rate_hz: 2.0
-    risk_class_names: [person]
-    risk_class_values: [100]
-    risk_class_radii_m: [1.2]
+    # Exact detector labels. Non-COCO warehouse labels require a matching
+    # custom detector model; model weights are intentionally not stored here.
+    risk_class_names: [person, forklift, pallet, fragile_box]
+    risk_class_values: [100, 95, 65, 85]
+    risk_class_radii_m: [1.2, 1.8, 0.8, 1.0]
     risk_radius_scale: 1.0

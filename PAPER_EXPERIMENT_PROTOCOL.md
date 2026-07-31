@@ -13,6 +13,8 @@
   `src/semantic_planning_experiments/config/paper_scenario_matrix_manifest.yaml`
 - 鲁棒性 manifest：
   `src/semantic_planning_experiments/config/paper_robustness_manifest.yaml`
+- 仓储对象类别 manifest：
+  `src/semantic_planning_experiments/config/paper_object_class_manifest.yaml`
 - 当前结果不能替代真实 RGB-D 和实车正式实验。
 
 ## 研究问题
@@ -56,6 +58,14 @@
 失败？
 
 RQ4 尚未进入 Pilot v1，将在异常注入阶段加入。
+
+### RQ5：不同仓储对象风险档案能否产生可解释的代价差异
+
+在几何位置相同的条件下，人员、叉车、托盘和易碎箱的风险强度与保护半径是否
+能形成可复现的 mask 尺寸、路径绕行和安全间距差异？
+
+该问题当前只验证检测后的语义代价链路，不测量 YOLO 对这些类别的识别精度。
+除 `person` 外的类别需要后续自定义仓储检测模型或上游标签适配器。
 
 ## 方法组
 
@@ -132,6 +142,21 @@ SHA-256。基线路径为 14.0053 m，并穿越风险区 2.3474 m。当前结果
 17.8690 m、穿越 0；0.10 m 固定种子深度噪声场景生成 1809 个风险栅格，
 语义路径 16.2976 m、穿越 0。两份完整计划仍各有 17 个 trial 未执行，当前
 数字只用于运行时链路验证。
+
+## 仓储对象类别计划
+
+对象类别 Pilot v1 覆盖 `person`、`forklift`、`pallet` 和 `fragile_box`，
+每类重复 3 次，共 12 个 trial，使用 ROS domain 160–171。初始风险值/半径
+分别为 `100/1.2 m`、`95/1.8 m`、`65/0.8 m`、`85/1.0 m`。这些数值是待现场
+标定的实验因素，不是已验证的工业安全阈值。
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_object_class_manifest.yaml \
+  --output /tmp/semantic_paper_object_class_plan.json
+```
+
+该命令只生成计划，不启动检测器、Nav2 控制器或硬件。
 
 生成报告后，逐 trial 应用 manifest 中的数值验收条件：
 
