@@ -358,7 +358,9 @@ trial 通过才返回成功，缺失、失败、dirty revision 和不安全报�
 多场景 `paper_scenario_matrix_manifest.yaml` 和感知扰动
 `paper_robustness_manifest.yaml` 各生成 6 个场景、18 个计划 trial。前者覆盖
 人员距离、数量和风险半径；后者覆盖固定种子深度噪声、无效深度、检测丢帧、
-同步偏移和置信度边界。两份计划均未执行，且生成命令不会启动 Nav2。
+同步偏移和置信度边界。干净提交 `e47a105` 已各完成 1 个无控制器 smoke
+trial，均成功规划且风险区穿越为 0；其余 trial 未执行。计划生成命令本身
+不会启动 Nav2。
 
 ## 后续阶段与验收
 

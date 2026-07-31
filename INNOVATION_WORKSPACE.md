@@ -115,7 +115,8 @@ ros2 launch largemodel largemodel_control.launch.py \
   工具链，不作为论文最终结论。
 - 多场景和鲁棒性 manifest 各包含 6 个场景、18 个计划 trial，分别使用
   ROS domain 120–137 和 140–157；随机种子、深度噪声、无效深度、检测丢帧、
-  时间偏移、人员数量及风险半径缩放均写入计划，当前未执行导航。
+  时间偏移、人员数量及风险半径缩放均写入计划。干净提交 `e47a105` 已各完成
+  1 个无控制器 smoke trial，均成功规划且风险区穿越为 0；各余 17 项未执行。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。
