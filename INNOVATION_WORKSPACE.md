@@ -108,6 +108,10 @@ ros2 launch largemodel largemodel_control.launch.py \
   空白 Pilot 计划已正确识别为 11 项缺失并返回非零状态。
 - 论文方法消融 manifest 已展开为固定软代价、硬障碍和完整模糊语义 3 个场景、
   9 个 trial，使用 ROS domain 110–118；每项报告内含关闭语义层 baseline。
+- 干净提交 `abe064d` 的 9 次方法消融 Pilot 已全部通过验收；各模式 3 次路径
+  几何完全重复。合成场景中 `fuzzy` 路径约 17.46 m，短于 `fixed` 的
+  17.92 m 和 `lethal` 的 18.26 m，三者风险区穿越均为 0。该结果仅验证
+  工具链，不作为论文最终结论。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。
