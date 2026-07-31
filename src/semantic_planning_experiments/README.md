@@ -29,6 +29,12 @@ synthetic CameraInfo, registered 16UC1 depth image, and person Detection2D pass
 through the real `semantic_mask_generator`. The runner consumes that external
 topic and records the generated mask geometry before planning.
 
+Synthetic scenario arguments cover depth, seeded depth noise, invalid-depth
+fraction, random seed, confidence, person count and spacing, image position,
+detection-frame stride, timestamp offset, and semantic-radius scale. The runner
+records all values in `mask_producer_runtime_parameters`, so the comparison
+fingerprint rejects trials with different injections.
+
 The global costmap is cleared and allowed to update between conditions.
 `cache_obstacle_heuristic` is disabled so the second result cannot reuse an
 obstacle heuristic calculated for the baseline costmap.
@@ -147,6 +153,21 @@ ros2 run semantic_planning_experiments semantic_experiment_plan \
 It expands fixed soft cost, lethal obstacle, and proposed fuzzy cost into nine
 controller-free trials. Each trial also records the embedded disabled semantic
 baseline.
+
+Two additional plans cover scenario diversity and bounded perception
+perturbations:
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_scenario_matrix_manifest.yaml \
+  --output /tmp/semantic_paper_scenario_matrix_plan.json
+
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_robustness_manifest.yaml \
+  --output /tmp/semantic_paper_robustness_plan.json
+```
+
+Each expands six scenarios into 18 planned trials without executing them.
 
 After the planned reports exist, audit every numeric criterion:
 

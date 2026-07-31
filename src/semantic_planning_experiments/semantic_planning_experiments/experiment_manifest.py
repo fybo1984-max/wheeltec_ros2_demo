@@ -18,6 +18,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -79,6 +80,78 @@ def _validate_parameters(value, description: str) -> dict:
             raise ValueError(
                 f"{description}.cost_mode must be 'fuzzy', 'fixed', or 'lethal'"
             )
+        if name in {
+            'synthetic_depth_m',
+            'risk_radius_scale',
+        } and (
+            isinstance(parameter_value, bool)
+            or not isinstance(parameter_value, (int, float))
+            or not math.isfinite(parameter_value)
+            or parameter_value <= 0.0
+        ):
+            raise ValueError(f'{description}.{name} must be positive')
+        if name == 'synthetic_depth_noise_std_m' and (
+            isinstance(parameter_value, bool)
+            or not isinstance(parameter_value, (int, float))
+            or not math.isfinite(parameter_value)
+            or parameter_value < 0.0
+        ):
+            raise ValueError(
+                f'{description}.{name} must be nonnegative'
+            )
+        if name in {
+            'synthetic_depth_invalid_fraction',
+            'synthetic_detection_score',
+            'synthetic_detection_center_x_fraction',
+            'synthetic_detection_center_y_fraction',
+        } and (
+            isinstance(parameter_value, bool)
+            or not isinstance(parameter_value, (int, float))
+            or not math.isfinite(parameter_value)
+            or parameter_value < 0.0
+            or parameter_value > 1.0
+            or (
+                name == 'synthetic_depth_invalid_fraction'
+                and parameter_value == 1.0
+            )
+        ):
+            raise ValueError(f'{description}.{name} is outside its range')
+        if name == 'synthetic_person_spacing_y_fraction' and (
+            isinstance(parameter_value, bool)
+            or not isinstance(parameter_value, (int, float))
+            or not math.isfinite(parameter_value)
+            or parameter_value < 0.0
+        ):
+            raise ValueError(
+                f'{description}.{name} must be nonnegative'
+            )
+        if name == 'synthetic_person_count' and (
+            isinstance(parameter_value, bool)
+            or not isinstance(parameter_value, int)
+            or parameter_value < 1
+            or parameter_value > 20
+        ):
+            raise ValueError(f'{description}.{name} must be in [1, 20]')
+        if name == 'synthetic_detection_publish_every_n_frames' and (
+            isinstance(parameter_value, bool)
+            or not isinstance(parameter_value, int)
+            or parameter_value < 1
+        ):
+            raise ValueError(f'{description}.{name} must be positive')
+        if name == 'synthetic_random_seed' and (
+            isinstance(parameter_value, bool)
+            or not isinstance(parameter_value, int)
+            or parameter_value < 0
+        ):
+            raise ValueError(
+                f'{description}.{name} must be a nonnegative integer'
+            )
+        if name == 'synthetic_detection_timestamp_offset_sec' and (
+            isinstance(parameter_value, bool)
+            or not isinstance(parameter_value, (int, float))
+            or not math.isfinite(parameter_value)
+        ):
+            raise ValueError(f'{description}.{name} must be finite')
         validated[name] = _require_scalar(
             parameter_value,
             f'{description}.{name}',

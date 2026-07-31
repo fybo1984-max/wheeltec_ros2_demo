@@ -42,6 +42,7 @@ from semantic_mask_generator.core import ObservationStore
 from semantic_mask_generator.core import project_pixel
 from semantic_mask_generator.core import rasterize_observations
 from semantic_mask_generator.core import RiskProfile
+from semantic_mask_generator.core import scale_risk_profile
 from semantic_mask_generator.core import transform_point
 
 
@@ -149,6 +150,7 @@ class SemanticMaskNode(Node):
         self.declare_parameter('risk_class_names', ['person'])
         self.declare_parameter('risk_class_values', [100])
         self.declare_parameter('risk_class_radii_m', [1.2])
+        self.declare_parameter('risk_radius_scale', 1.0)
 
     def _read_parameters(self) -> None:
         def value(name):
@@ -178,12 +180,15 @@ class SemanticMaskNode(Node):
         names = list(value('risk_class_names'))
         risk_values = list(value('risk_class_values'))
         radii = list(value('risk_class_radii_m'))
+        radius_scale = float(value('risk_radius_scale'))
         if not names or len(names) != len(risk_values) or len(names) != len(radii):
             raise ValueError('risk class names, values, and radii must align')
         self._profiles = {}
         for name, risk_value, radius in zip(names, risk_values, radii):
-            profile = RiskProfile(int(risk_value), float(radius))
-            profile.validate()
+            profile = scale_risk_profile(
+                RiskProfile(int(risk_value), float(radius)),
+                radius_scale,
+            )
             self._profiles[str(name).casefold()] = profile
 
         if not 0.0 <= self._minimum_confidence <= 1.0:

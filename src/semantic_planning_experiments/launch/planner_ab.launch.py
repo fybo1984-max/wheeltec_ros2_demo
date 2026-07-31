@@ -84,6 +84,9 @@ def generate_launch_description():
     mask_source = LaunchConfiguration('mask_source')
     topic_input_mode = LaunchConfiguration('topic_input_mode')
     mask_producer_config = LaunchConfiguration('mask_producer_config')
+    synthetic_source_config = LaunchConfiguration(
+        'synthetic_source_config'
+    )
     producer_detection_active_duration = LaunchConfiguration(
         'producer_detection_active_duration_sec'
     )
@@ -92,6 +95,36 @@ def generate_launch_description():
     )
     producer_observation_decay = LaunchConfiguration(
         'producer_observation_decay_sec'
+    )
+    producer_depth_m = LaunchConfiguration('producer_depth_m')
+    producer_depth_noise = LaunchConfiguration(
+        'producer_depth_noise_std_m'
+    )
+    producer_depth_invalid = LaunchConfiguration(
+        'producer_depth_invalid_fraction'
+    )
+    producer_random_seed = LaunchConfiguration('producer_random_seed')
+    producer_detection_score = LaunchConfiguration(
+        'producer_detection_score'
+    )
+    producer_person_count = LaunchConfiguration('producer_person_count')
+    producer_center_x = LaunchConfiguration(
+        'producer_detection_center_x_fraction'
+    )
+    producer_center_y = LaunchConfiguration(
+        'producer_detection_center_y_fraction'
+    )
+    producer_person_spacing = LaunchConfiguration(
+        'producer_person_spacing_y_fraction'
+    )
+    producer_detection_stride = LaunchConfiguration(
+        'producer_detection_publish_every_n_frames'
+    )
+    producer_timestamp_offset = LaunchConfiguration(
+        'producer_detection_timestamp_offset_sec'
+    )
+    producer_risk_radius_scale = LaunchConfiguration(
+        'producer_risk_radius_scale'
     )
     output_path = LaunchConfiguration('output_path')
     start_x = LaunchConfiguration('start_x')
@@ -173,10 +206,25 @@ def generate_launch_description():
             'mask_source': mask_source,
             'topic_input_mode': topic_input_mode,
             'mask_producer_config_path': mask_producer_config,
+            'synthetic_source_config_path': synthetic_source_config,
             'producer_detection_active_duration_sec':
                 producer_detection_active_duration,
             'producer_observation_hold_sec': producer_observation_hold,
             'producer_observation_decay_sec': producer_observation_decay,
+            'producer_depth_m': producer_depth_m,
+            'producer_depth_noise_std_m': producer_depth_noise,
+            'producer_depth_invalid_fraction': producer_depth_invalid,
+            'producer_random_seed': producer_random_seed,
+            'producer_detection_score': producer_detection_score,
+            'producer_person_count': producer_person_count,
+            'producer_detection_center_x_fraction': producer_center_x,
+            'producer_detection_center_y_fraction': producer_center_y,
+            'producer_person_spacing_y_fraction': producer_person_spacing,
+            'producer_detection_publish_every_n_frames':
+                producer_detection_stride,
+            'producer_detection_timestamp_offset_sec':
+                producer_timestamp_offset,
+            'producer_risk_radius_scale': producer_risk_radius_scale,
             'planner_config_path': os.path.join(
                 experiment_share, 'config', 'planner_ab.yaml'
             ),
@@ -232,6 +280,11 @@ def generate_launch_description():
             description='Optional external mask producer config for hashing.',
         ),
         DeclareLaunchArgument(
+            'synthetic_source_config',
+            default_value='',
+            description='Optional synthetic RGB-D config for hashing.',
+        ),
+        DeclareLaunchArgument(
             'producer_detection_active_duration_sec',
             default_value='-1.0',
             description='Recorded external producer detection duration.',
@@ -245,6 +298,45 @@ def generate_launch_description():
             'producer_observation_decay_sec',
             default_value='-1.0',
             description='Recorded external producer decay duration.',
+        ),
+        DeclareLaunchArgument('producer_depth_m', default_value='-1.0'),
+        DeclareLaunchArgument(
+            'producer_depth_noise_std_m',
+            default_value='-1.0',
+        ),
+        DeclareLaunchArgument(
+            'producer_depth_invalid_fraction',
+            default_value='-1.0',
+        ),
+        DeclareLaunchArgument('producer_random_seed', default_value='-1'),
+        DeclareLaunchArgument(
+            'producer_detection_score',
+            default_value='-1.0',
+        ),
+        DeclareLaunchArgument('producer_person_count', default_value='-1'),
+        DeclareLaunchArgument(
+            'producer_detection_center_x_fraction',
+            default_value='-1.0',
+        ),
+        DeclareLaunchArgument(
+            'producer_detection_center_y_fraction',
+            default_value='-1.0',
+        ),
+        DeclareLaunchArgument(
+            'producer_person_spacing_y_fraction',
+            default_value='-1.0',
+        ),
+        DeclareLaunchArgument(
+            'producer_detection_publish_every_n_frames',
+            default_value='-1',
+        ),
+        DeclareLaunchArgument(
+            'producer_detection_timestamp_offset_sec',
+            default_value='-1.0',
+        ),
+        DeclareLaunchArgument(
+            'producer_risk_radius_scale',
+            default_value='-1.0',
         ),
         DeclareLaunchArgument(
             'output_path',

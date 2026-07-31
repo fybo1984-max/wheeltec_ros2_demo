@@ -68,12 +68,40 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('mask_topic', '/semantic_mask')
         self.declare_parameter('topic_input_mode', 'fixture')
         self.declare_parameter('mask_producer_config_path', '')
+        self.declare_parameter('synthetic_source_config_path', '')
         self.declare_parameter(
             'producer_detection_active_duration_sec',
             -1.0,
         )
         self.declare_parameter('producer_observation_hold_sec', -1.0)
         self.declare_parameter('producer_observation_decay_sec', -1.0)
+        self.declare_parameter('producer_depth_m', -1.0)
+        self.declare_parameter('producer_depth_noise_std_m', -1.0)
+        self.declare_parameter('producer_depth_invalid_fraction', -1.0)
+        self.declare_parameter('producer_random_seed', -1)
+        self.declare_parameter('producer_detection_score', -1.0)
+        self.declare_parameter('producer_person_count', -1)
+        self.declare_parameter(
+            'producer_detection_center_x_fraction',
+            -1.0,
+        )
+        self.declare_parameter(
+            'producer_detection_center_y_fraction',
+            -1.0,
+        )
+        self.declare_parameter(
+            'producer_person_spacing_y_fraction',
+            -1.0,
+        )
+        self.declare_parameter(
+            'producer_detection_publish_every_n_frames',
+            -1,
+        )
+        self.declare_parameter(
+            'producer_detection_timestamp_offset_sec',
+            -1.0,
+        )
+        self.declare_parameter('producer_risk_radius_scale', -1.0)
         self.declare_parameter('map_yaml_path', '')
         self.declare_parameter('planner_config_path', '')
         self.declare_parameter('output_path', '/tmp/semantic_planning_ab.json')
@@ -414,6 +442,9 @@ class SemanticPlanningAB(Node):
         producer_config_value = str(
             self.get_parameter('mask_producer_config_path').value
         ).strip()
+        synthetic_config_value = str(
+            self.get_parameter('synthetic_source_config_path').value
+        ).strip()
         cost_mode = str(self.get_parameter('cost_mode').value).strip()
         task_urgency = int(self.get_parameter('task_urgency').value)
         avoidance_level = float(
@@ -459,6 +490,10 @@ class SemanticPlanningAB(Node):
         producer_config_path = (
             Path(producer_config_value).expanduser().resolve()
             if producer_config_value else None
+        )
+        synthetic_config_path = (
+            Path(synthetic_config_value).expanduser().resolve()
+            if synthetic_config_value else None
         )
 
         self._wait_for_interfaces()
@@ -537,6 +572,14 @@ class SemanticPlanningAB(Node):
                     sha256_file(producer_config_path)
                     if producer_config_path else None
                 ),
+                'synthetic_source_config_path': (
+                    str(synthetic_config_path)
+                    if synthetic_config_path else None
+                ),
+                'synthetic_source_config_sha256': (
+                    sha256_file(synthetic_config_path)
+                    if synthetic_config_path else None
+                ),
                 'mask_producer_runtime_parameters': (
                     {
                         'detection_active_duration_sec': float(
@@ -552,6 +595,64 @@ class SemanticPlanningAB(Node):
                         'observation_decay_sec': float(
                             self.get_parameter(
                                 'producer_observation_decay_sec'
+                            ).value
+                        ),
+                        'depth_m': float(
+                            self.get_parameter('producer_depth_m').value
+                        ),
+                        'depth_noise_std_m': float(
+                            self.get_parameter(
+                                'producer_depth_noise_std_m'
+                            ).value
+                        ),
+                        'depth_invalid_fraction': float(
+                            self.get_parameter(
+                                'producer_depth_invalid_fraction'
+                            ).value
+                        ),
+                        'random_seed': int(
+                            self.get_parameter(
+                                'producer_random_seed'
+                            ).value
+                        ),
+                        'detection_score': float(
+                            self.get_parameter(
+                                'producer_detection_score'
+                            ).value
+                        ),
+                        'person_count': int(
+                            self.get_parameter(
+                                'producer_person_count'
+                            ).value
+                        ),
+                        'detection_center_x_fraction': float(
+                            self.get_parameter(
+                                'producer_detection_center_x_fraction'
+                            ).value
+                        ),
+                        'detection_center_y_fraction': float(
+                            self.get_parameter(
+                                'producer_detection_center_y_fraction'
+                            ).value
+                        ),
+                        'person_spacing_y_fraction': float(
+                            self.get_parameter(
+                                'producer_person_spacing_y_fraction'
+                            ).value
+                        ),
+                        'detection_publish_every_n_frames': int(
+                            self.get_parameter(
+                                'producer_detection_publish_every_n_frames'
+                            ).value
+                        ),
+                        'detection_timestamp_offset_sec': float(
+                            self.get_parameter(
+                                'producer_detection_timestamp_offset_sec'
+                            ).value
+                        ),
+                        'risk_radius_scale': float(
+                            self.get_parameter(
+                                'producer_risk_radius_scale'
                             ).value
                         ),
                     }

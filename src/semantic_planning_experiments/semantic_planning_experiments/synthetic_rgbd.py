@@ -16,8 +16,8 @@
 
 import time
 
-import numpy as np
 import rclpy
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import CameraInfo, Image
@@ -26,6 +26,8 @@ from vision_msgs.msg import (
     Detection2DArray,
     ObjectHypothesisWithPose,
 )
+
+from semantic_planning_experiments.synthetic_scene import SyntheticSceneSpec
 
 
 class SyntheticRGBDSource(Node):
@@ -41,7 +43,18 @@ class SyntheticRGBDSource(Node):
         self.declare_parameter('height', 48)
         self.declare_parameter('focal_length_px', 50.0)
         self.declare_parameter('depth_m', 2.0)
+        self.declare_parameter('depth_noise_std_m', 0.0)
+        self.declare_parameter('depth_invalid_fraction', 0.0)
+        self.declare_parameter('random_seed', 42)
         self.declare_parameter('detection_score', 0.95)
+        self.declare_parameter('person_count', 1)
+        self.declare_parameter('detection_center_x_fraction', 0.5)
+        self.declare_parameter('detection_center_y_fraction', 0.5)
+        self.declare_parameter('person_spacing_y_fraction', 0.2)
+        self.declare_parameter('bbox_width_fraction', 0.25)
+        self.declare_parameter('bbox_height_fraction', 0.5)
+        self.declare_parameter('detection_publish_every_n_frames', 1)
+        self.declare_parameter('detection_timestamp_offset_sec', 0.0)
         self.declare_parameter('publish_rate_hz', 10.0)
         self.declare_parameter('detections_active_duration_sec', 0.0)
 
@@ -49,22 +62,57 @@ class SyntheticRGBDSource(Node):
         self._width = int(self.get_parameter('width').value)
         self._height = int(self.get_parameter('height').value)
         self._focal = float(self.get_parameter('focal_length_px').value)
-        self._depth_m = float(self.get_parameter('depth_m').value)
         self._score = float(self.get_parameter('detection_score').value)
+        self._scene = SyntheticSceneSpec(
+            width=self._width,
+            height=self._height,
+            depth_m=float(self.get_parameter('depth_m').value),
+            depth_noise_std_m=float(
+                self.get_parameter('depth_noise_std_m').value
+            ),
+            depth_invalid_fraction=float(
+                self.get_parameter('depth_invalid_fraction').value
+            ),
+            random_seed=int(self.get_parameter('random_seed').value),
+            person_count=int(self.get_parameter('person_count').value),
+            center_x_fraction=float(
+                self.get_parameter('detection_center_x_fraction').value
+            ),
+            center_y_fraction=float(
+                self.get_parameter('detection_center_y_fraction').value
+            ),
+            person_spacing_y_fraction=float(
+                self.get_parameter('person_spacing_y_fraction').value
+            ),
+            bbox_width_fraction=float(
+                self.get_parameter('bbox_width_fraction').value
+            ),
+            bbox_height_fraction=float(
+                self.get_parameter('bbox_height_fraction').value
+            ),
+            detection_publish_every_n_frames=int(
+                self.get_parameter(
+                    'detection_publish_every_n_frames'
+                ).value
+            ),
+            detection_timestamp_offset_sec=float(
+                self.get_parameter('detection_timestamp_offset_sec').value
+            ),
+        )
+        self._scene.validate()
         publish_rate = float(self.get_parameter('publish_rate_hz').value)
         self._active_duration = float(
             self.get_parameter('detections_active_duration_sec').value
         )
-        if self._width <= 0 or self._height <= 0:
-            raise ValueError('synthetic image dimensions must be positive')
-        if self._focal <= 0.0 or self._depth_m <= 0.0 or publish_rate <= 0.0:
-            raise ValueError('synthetic focal length, depth, and rate must be positive')
+        if self._focal <= 0.0 or publish_rate <= 0.0:
+            raise ValueError('synthetic focal length and rate must be positive')
         if not 0.0 <= self._score <= 1.0:
             raise ValueError('synthetic detection score must be in [0, 1]')
         if self._active_duration < 0.0:
             raise ValueError('detections_active_duration_sec must be nonnegative')
         self._started_at = time.monotonic()
         self._reported_stop = False
+        self._publish_count = 0
 
         self._camera_info_publisher = self.create_publisher(
             CameraInfo,
@@ -81,16 +129,17 @@ class SyntheticRGBDSource(Node):
             self.get_parameter('detections_topic').value,
             qos_profile_sensor_data,
         )
-        depth_mm = int(round(self._depth_m * 1000.0))
-        self._depth_bytes = np.full(
-            (self._height, self._width),
-            depth_mm,
-            dtype='<u2',
-        ).tobytes()
+        self._depth_bytes = self._scene.depth_bytes()
         self.create_timer(1.0 / publish_rate, self._publish)
 
     def _publish(self) -> None:
-        stamp = self.get_clock().now().to_msg()
+        now = self.get_clock().now()
+        stamp = now.to_msg()
+        detection_stamp = (
+            now + Duration(
+                seconds=self._scene.detection_timestamp_offset_sec
+            )
+        ).to_msg()
 
         camera_info = CameraInfo()
         camera_info.header.stamp = stamp
@@ -113,25 +162,41 @@ class SyntheticRGBDSource(Node):
         depth.step = self._width * 2
         depth.data = self._depth_bytes
 
-        result = ObjectHypothesisWithPose()
-        result.hypothesis.class_id = 'person'
-        result.hypothesis.score = self._score
-        detection = Detection2D()
-        detection.header.stamp = stamp
-        detection.header.frame_id = self._camera_frame
-        detection.results = [result]
-        detection.bbox.center.position.x = self._width * 0.5
-        detection.bbox.center.position.y = self._height * 0.5
-        detection.bbox.size_x = self._width * 0.25
-        detection.bbox.size_y = self._height * 0.5
+        detection_messages = []
+        for center_x, center_y in self._scene.detection_centers_px():
+            result = ObjectHypothesisWithPose()
+            result.hypothesis.class_id = 'person'
+            result.hypothesis.score = self._score
+            detection = Detection2D()
+            detection.header.stamp = detection_stamp
+            detection.header.frame_id = self._camera_frame
+            detection.results = [result]
+            detection.bbox.center.position.x = center_x
+            detection.bbox.center.position.y = center_y
+            detection.bbox.size_x = (
+                self._width * self._scene.bbox_width_fraction
+            )
+            detection.bbox.size_y = (
+                self._height * self._scene.bbox_height_fraction
+            )
+            detection_messages.append(detection)
         detections = Detection2DArray()
-        detections.header.stamp = stamp
+        detections.header.stamp = detection_stamp
         detections.header.frame_id = self._camera_frame
         detections_active = (
             self._active_duration == 0.0
             or time.monotonic() - self._started_at < self._active_duration
         )
-        detections.detections = [detection] if detections_active else []
+        publish_detection_frame = (
+            self._publish_count
+            % self._scene.detection_publish_every_n_frames
+            == 0
+        )
+        detections.detections = (
+            detection_messages
+            if detections_active and publish_detection_frame
+            else []
+        )
         if not detections_active and not self._reported_stop:
             self.get_logger().info(
                 'synthetic detections stopped; RGB-D publishing continues'
@@ -141,6 +206,7 @@ class SyntheticRGBDSource(Node):
         self._camera_info_publisher.publish(camera_info)
         self._depth_publisher.publish(depth)
         self._detections_publisher.publish(detections)
+        self._publish_count += 1
 
 
 def main(args=None) -> None:

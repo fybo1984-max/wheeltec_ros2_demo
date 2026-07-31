@@ -54,6 +54,34 @@ def generate_launch_description():
     observation_hold = LaunchConfiguration('observation_hold_sec')
     observation_decay = LaunchConfiguration('observation_decay_sec')
     recovery_timeout = LaunchConfiguration('recovery_timeout_seconds')
+    synthetic_depth_m = LaunchConfiguration('synthetic_depth_m')
+    synthetic_depth_noise = LaunchConfiguration(
+        'synthetic_depth_noise_std_m'
+    )
+    synthetic_depth_invalid = LaunchConfiguration(
+        'synthetic_depth_invalid_fraction'
+    )
+    synthetic_random_seed = LaunchConfiguration('synthetic_random_seed')
+    synthetic_detection_score = LaunchConfiguration(
+        'synthetic_detection_score'
+    )
+    synthetic_person_count = LaunchConfiguration('synthetic_person_count')
+    synthetic_center_x = LaunchConfiguration(
+        'synthetic_detection_center_x_fraction'
+    )
+    synthetic_center_y = LaunchConfiguration(
+        'synthetic_detection_center_y_fraction'
+    )
+    synthetic_person_spacing = LaunchConfiguration(
+        'synthetic_person_spacing_y_fraction'
+    )
+    synthetic_detection_stride = LaunchConfiguration(
+        'synthetic_detection_publish_every_n_frames'
+    )
+    synthetic_timestamp_offset = LaunchConfiguration(
+        'synthetic_detection_timestamp_offset_sec'
+    )
+    risk_radius_scale = LaunchConfiguration('risk_radius_scale')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -102,6 +130,42 @@ def generate_launch_description():
             default_value='0.0',
             description='Wait for mask clearing and plan a recovery condition.',
         ),
+        DeclareLaunchArgument('synthetic_depth_m', default_value='2.0'),
+        DeclareLaunchArgument(
+            'synthetic_depth_noise_std_m',
+            default_value='0.0',
+        ),
+        DeclareLaunchArgument(
+            'synthetic_depth_invalid_fraction',
+            default_value='0.0',
+        ),
+        DeclareLaunchArgument('synthetic_random_seed', default_value='42'),
+        DeclareLaunchArgument(
+            'synthetic_detection_score',
+            default_value='0.95',
+        ),
+        DeclareLaunchArgument('synthetic_person_count', default_value='1'),
+        DeclareLaunchArgument(
+            'synthetic_detection_center_x_fraction',
+            default_value='0.5',
+        ),
+        DeclareLaunchArgument(
+            'synthetic_detection_center_y_fraction',
+            default_value='0.5',
+        ),
+        DeclareLaunchArgument(
+            'synthetic_person_spacing_y_fraction',
+            default_value='0.2',
+        ),
+        DeclareLaunchArgument(
+            'synthetic_detection_publish_every_n_frames',
+            default_value='1',
+        ),
+        DeclareLaunchArgument(
+            'synthetic_detection_timestamp_offset_sec',
+            default_value='0.0',
+        ),
+        DeclareLaunchArgument('risk_radius_scale', default_value='1.0'),
         SetEnvironmentVariable('ROS_DOMAIN_ID', domain_id),
         SetEnvironmentVariable('ROS_LOCALHOST_ONLY', '1'),
         Node(
@@ -116,6 +180,7 @@ def generate_launch_description():
                     'depth_is_registered': True,
                     'observation_hold_sec': observation_hold,
                     'observation_decay_sec': observation_decay,
+                    'risk_radius_scale': risk_radius_scale,
                 },
             ],
         ),
@@ -129,6 +194,19 @@ def generate_launch_description():
                 {
                     'detections_active_duration_sec':
                         detection_active_duration,
+                    'depth_m': synthetic_depth_m,
+                    'depth_noise_std_m': synthetic_depth_noise,
+                    'depth_invalid_fraction': synthetic_depth_invalid,
+                    'random_seed': synthetic_random_seed,
+                    'detection_score': synthetic_detection_score,
+                    'person_count': synthetic_person_count,
+                    'detection_center_x_fraction': synthetic_center_x,
+                    'detection_center_y_fraction': synthetic_center_y,
+                    'person_spacing_y_fraction': synthetic_person_spacing,
+                    'detection_publish_every_n_frames':
+                        synthetic_detection_stride,
+                    'detection_timestamp_offset_sec':
+                        synthetic_timestamp_offset,
                 },
             ],
         ),
@@ -155,10 +233,26 @@ def generate_launch_description():
                 'mask_source': 'topic',
                 'topic_input_mode': 'external',
                 'mask_producer_config': generator_config,
+                'synthetic_source_config': synthetic_config,
                 'producer_detection_active_duration_sec':
                     detection_active_duration,
                 'producer_observation_hold_sec': observation_hold,
                 'producer_observation_decay_sec': observation_decay,
+                'producer_depth_m': synthetic_depth_m,
+                'producer_depth_noise_std_m': synthetic_depth_noise,
+                'producer_depth_invalid_fraction': synthetic_depth_invalid,
+                'producer_random_seed': synthetic_random_seed,
+                'producer_detection_score': synthetic_detection_score,
+                'producer_person_count': synthetic_person_count,
+                'producer_detection_center_x_fraction': synthetic_center_x,
+                'producer_detection_center_y_fraction': synthetic_center_y,
+                'producer_person_spacing_y_fraction':
+                    synthetic_person_spacing,
+                'producer_detection_publish_every_n_frames':
+                    synthetic_detection_stride,
+                'producer_detection_timestamp_offset_sec':
+                    synthetic_timestamp_offset,
+                'producer_risk_radius_scale': risk_radius_scale,
                 'output_path': output_path,
                 'cost_mode': cost_mode,
                 'task_urgency': task_urgency,

@@ -1,0 +1,118 @@
+schema_version: 1
+study_id: semantic_costmap_robustness_pilot_v1
+description: >-
+  Controller-free bounded perception perturbations for depth noise, invalid
+  depth, dropped detections, synchronization offset, and confidence margin.
+output_root: /tmp/semantic_costmap_robustness_pilot_v1
+domain_id_start: 140
+
+defaults:
+  package: semantic_planning_experiments
+  launch_file: generator_planner_ab.launch.py
+  repetitions: 3
+  parameters:
+    cost_mode: fuzzy
+    task_urgency: 0
+    avoidance_level: 70.0
+    start_x: 6.0
+    start_y: 0.0
+    start_yaw: 0.0
+    goal_x: 20.0
+    goal_y: 0.0
+    goal_yaw: 0.0
+    detection_active_duration_sec: 0.0
+    observation_hold_sec: 60.0
+    observation_decay_sec: 60.0
+    recovery_timeout_seconds: 0.0
+    synthetic_depth_m: 2.0
+    synthetic_depth_noise_std_m: 0.0
+    synthetic_depth_invalid_fraction: 0.0
+    synthetic_random_seed: 42
+    synthetic_detection_score: 0.95
+    synthetic_person_count: 1
+    synthetic_detection_center_x_fraction: 0.5
+    synthetic_detection_center_y_fraction: 0.5
+    synthetic_person_spacing_y_fraction: 0.2
+    synthetic_detection_publish_every_n_frames: 1
+    synthetic_detection_timestamp_offset_sec: 0.0
+    risk_radius_scale: 1.0
+
+scenarios:
+  - id: robustness_nominal
+    research_question: RQ4
+    hypothesis: The nominal synthetic chain produces a valid semantic route.
+    factors:
+      perturbation: none
+      level: nominal
+    parameters: {}
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: depth_noise_moderate
+    research_question: RQ4
+    hypothesis: Seeded 0.10 m depth noise preserves a feasible semantic route.
+    factors:
+      perturbation: depth_noise
+      level: moderate
+    parameters:
+      synthetic_depth_noise_std_m: 0.1
+      synthetic_random_seed: 101
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: invalid_depth_half
+    research_question: RQ4
+    hypothesis: Fifty percent seeded invalid depth remains recoverable by median sampling.
+    factors:
+      perturbation: invalid_depth
+      level: 0.5
+    parameters:
+      synthetic_depth_invalid_fraction: 0.5
+      synthetic_random_seed: 102
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: detection_every_second_frame
+    research_question: RQ4
+    hypothesis: Deterministic 50 percent detection-frame loss preserves the risk mask.
+    factors:
+      perturbation: detection_frame_loss
+      level: every_second_frame
+    parameters:
+      synthetic_detection_publish_every_n_frames: 2
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: sync_offset_near_limit
+    research_question: RQ4
+    hypothesis: A 0.10 s offset below the 0.15 s sync limit remains accepted.
+    factors:
+      perturbation: timestamp_offset
+      level: 0.10_sec
+    parameters:
+      synthetic_detection_timestamp_offset_sec: 0.1
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: confidence_near_threshold
+    research_question: RQ4
+    hypothesis: Confidence 0.55 above the 0.50 threshold remains accepted.
+    factors:
+      perturbation: confidence_margin
+      level: 0.55
+    parameters:
+      synthetic_detection_score: 0.55
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0

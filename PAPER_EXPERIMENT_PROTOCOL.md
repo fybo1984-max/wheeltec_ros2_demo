@@ -9,6 +9,10 @@
   `src/semantic_planning_experiments/config/paper_pilot_manifest.yaml`
 - 消融 manifest：
   `src/semantic_planning_experiments/config/paper_ablation_manifest.yaml`
+- 多场景 manifest：
+  `src/semantic_planning_experiments/config/paper_scenario_matrix_manifest.yaml`
+- 鲁棒性 manifest：
+  `src/semantic_planning_experiments/config/paper_robustness_manifest.yaml`
 - 当前结果不能替代真实 RGB-D 和实车正式实验。
 
 ## 研究问题
@@ -114,6 +118,18 @@ SHA-256。基线路径为 14.0053 m，并穿越风险区 2.3474 m。当前结果
 对照链路和统计工具可用；由于仅含一个确定性合成场景且每组样本量为 3，不能
 作为论文最终效果结论。
 
+## 多场景与鲁棒性计划
+
+多场景 Pilot v1 包含人员距离近/中/远、风险半径小/大和 3 人聚集共 6 个
+场景，每个场景重复 3 次，共 18 个 trial，使用 ROS domain 120–137。
+
+鲁棒性 Pilot v1 包含无扰动基线、0.10 m 固定种子深度噪声、50% 固定种子
+无效深度、每 2 帧发布一次检测、接近同步阈值的 0.10 s 时间偏移，以及接近
+置信度阈值的 0.55 检测分数，共 18 个 trial，使用 ROS domain 140–157。
+
+两份计划均显式保存随机种子和全部注入参数。当前只完成计划生成和参数链路
+验证，尚未执行这些 Nav2 trial。
+
 生成报告后，逐 trial 应用 manifest 中的数值验收条件：
 
 ```bash
@@ -160,8 +176,8 @@ Pilot v1 不允许：
 
 ## 后续协议修订
 
-1. Pilot v2：人员位置、数量和风险半径矩阵；
-2. Robustness v1：深度噪声、漏检、TF 延迟和过期检测；
+1. Scenario Matrix v1：执行已生成的人员距离、数量和风险半径矩阵；
+2. Robustness v1：执行已生成的有界感知扰动，并补充超阈值失败注入；
 3. Recorded RGB-D v1：真实 Rosbag 回放；
 4. Physical AGV v1：静止规划和低速闭环；
 5. Final paper：冻结方法组、样本量、统计检验和论文图表。

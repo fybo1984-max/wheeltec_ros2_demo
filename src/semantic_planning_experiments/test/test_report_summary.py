@@ -40,6 +40,7 @@ def _report(planning_time: float = 0.1) -> dict:
             'mask_image_sha256': None,
             'planner_config_sha256': 'planner',
             'mask_producer_config_sha256': 'producer',
+            'synthetic_source_config_sha256': 'synthetic',
             'mask_producer_runtime_parameters': {
                 'detection_active_duration_sec': 0.0,
             },

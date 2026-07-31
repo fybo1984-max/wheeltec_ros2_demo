@@ -25,6 +25,7 @@ from semantic_mask_generator.core import project_pixel
 from semantic_mask_generator.core import rasterize_observations
 from semantic_mask_generator.core import RiskObservation
 from semantic_mask_generator.core import RiskProfile
+from semantic_mask_generator.core import scale_risk_profile
 from semantic_mask_generator.core import transform_point
 
 
@@ -104,6 +105,17 @@ def test_observation_store_merges_nearby_same_class():
     active = store.active(10.5)
     assert len(active) == 1
     assert active[0].x == 1.2
+
+
+def test_risk_profile_radius_scale_is_validated():
+    profile = scale_risk_profile(
+        RiskProfile(value=100, radius_m=1.2),
+        1.5,
+    )
+    assert profile.radius_m == pytest.approx(1.8)
+
+    with pytest.raises(ValueError, match='scale'):
+        scale_risk_profile(profile, 0.0)
 
 
 def test_observation_holds_then_decays_and_expires():

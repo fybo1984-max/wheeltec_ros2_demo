@@ -64,6 +64,9 @@ def _comparison_inputs(report: dict) -> dict:
         'mask_producer_config_sha256': inputs.get(
             'mask_producer_config_sha256'
         ),
+        'synthetic_source_config_sha256': inputs.get(
+            'synthetic_source_config_sha256'
+        ),
         'mask_producer_runtime_parameters': inputs.get(
             'mask_producer_runtime_parameters'
         ),

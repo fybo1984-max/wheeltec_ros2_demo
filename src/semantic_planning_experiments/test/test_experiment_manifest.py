@@ -132,3 +132,25 @@ def test_manifest_rejects_invalid_cost_mode(tmp_path: Path):
 
     with pytest.raises(ValueError, match='cost_mode'):
         load_manifest(path)
+
+
+@pytest.mark.parametrize(
+    'name, value',
+    [
+        ('synthetic_depth_invalid_fraction', 1.0),
+        ('synthetic_person_count', 0),
+        ('synthetic_detection_publish_every_n_frames', 0),
+        ('risk_radius_scale', 0.0),
+    ],
+)
+def test_manifest_rejects_invalid_synthetic_injection(
+    tmp_path: Path,
+    name: str,
+    value,
+):
+    manifest = _manifest()
+    manifest['defaults']['parameters'][name] = value
+    path = _write_manifest(tmp_path / 'manifest.yaml', manifest)
+
+    with pytest.raises(ValueError, match=name):
+        load_manifest(path)

@@ -1,0 +1,118 @@
+schema_version: 1
+study_id: semantic_costmap_scenario_matrix_pilot_v1
+description: >-
+  Controller-free synthetic matrix for person range, risk radius, and person
+  count using the proposed fuzzy semantic cost.
+output_root: /tmp/semantic_costmap_scenario_matrix_pilot_v1
+domain_id_start: 120
+
+defaults:
+  package: semantic_planning_experiments
+  launch_file: generator_planner_ab.launch.py
+  repetitions: 3
+  parameters:
+    cost_mode: fuzzy
+    task_urgency: 0
+    avoidance_level: 70.0
+    start_x: 6.0
+    start_y: 0.0
+    start_yaw: 0.0
+    goal_x: 20.0
+    goal_y: 0.0
+    goal_yaw: 0.0
+    detection_active_duration_sec: 0.0
+    observation_hold_sec: 60.0
+    observation_decay_sec: 60.0
+    recovery_timeout_seconds: 0.0
+    synthetic_depth_m: 2.0
+    synthetic_depth_noise_std_m: 0.0
+    synthetic_depth_invalid_fraction: 0.0
+    synthetic_random_seed: 42
+    synthetic_detection_score: 0.95
+    synthetic_person_count: 1
+    synthetic_detection_center_x_fraction: 0.5
+    synthetic_detection_center_y_fraction: 0.5
+    synthetic_person_spacing_y_fraction: 0.2
+    synthetic_detection_publish_every_n_frames: 1
+    synthetic_detection_timestamp_offset_sec: 0.0
+    risk_radius_scale: 1.0
+
+scenarios:
+  - id: person_range_near
+    research_question: RQ1
+    hypothesis: The method avoids a person risk zone near the camera.
+    factors:
+      dimension: person_range
+      level: near
+    parameters:
+      synthetic_depth_m: 1.2
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: person_range_nominal
+    research_question: RQ1
+    hypothesis: The method avoids a person risk zone at nominal range.
+    factors:
+      dimension: person_range
+      level: nominal
+    parameters:
+      synthetic_depth_m: 2.0
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: person_range_far
+    research_question: RQ1
+    hypothesis: The method avoids a person risk zone farther along the route.
+    factors:
+      dimension: person_range
+      level: far
+    parameters:
+      synthetic_depth_m: 3.0
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: risk_radius_small
+    research_question: RQ1
+    hypothesis: A smaller semantic radius produces a measurable safety tradeoff.
+    factors:
+      dimension: risk_radius
+      level: small
+    parameters:
+      risk_radius_scale: 0.67
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: risk_radius_large
+    research_question: RQ1
+    hypothesis: A larger semantic radius increases route clearance or overhead.
+    factors:
+      dimension: risk_radius
+      level: large
+    parameters:
+      risk_radius_scale: 1.33
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: three_person_cluster
+    research_question: RQ1
+    hypothesis: The method remains feasible with three nearby person detections.
+    factors:
+      dimension: person_count
+      level: three
+    parameters:
+      synthetic_person_count: 3
+      synthetic_person_spacing_y_fraction: 0.2
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0

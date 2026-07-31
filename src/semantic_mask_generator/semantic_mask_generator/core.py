@@ -56,6 +56,16 @@ class RiskProfile:
             raise ValueError('risk radius must be positive')
 
 
+def scale_risk_profile(profile: RiskProfile, radius_scale: float) -> RiskProfile:
+    """Return a validated profile with a reproducible radius multiplier."""
+    profile.validate()
+    if not math.isfinite(radius_scale) or radius_scale <= 0.0:
+        raise ValueError('risk radius scale must be positive')
+    scaled = RiskProfile(profile.value, profile.radius_m * radius_scale)
+    scaled.validate()
+    return scaled
+
+
 @dataclass
 class RiskObservation:
     """Map-frame semantic observation with deterministic expiration."""

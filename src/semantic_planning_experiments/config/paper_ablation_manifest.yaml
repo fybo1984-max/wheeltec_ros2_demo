@@ -23,6 +23,18 @@ defaults:
     recovery_timeout_seconds: 0.0
     task_urgency: 0
     avoidance_level: 70.0
+    synthetic_depth_m: 2.0
+    synthetic_depth_noise_std_m: 0.0
+    synthetic_depth_invalid_fraction: 0.0
+    synthetic_random_seed: 42
+    synthetic_detection_score: 0.95
+    synthetic_person_count: 1
+    synthetic_detection_center_x_fraction: 0.5
+    synthetic_detection_center_y_fraction: 0.5
+    synthetic_person_spacing_y_fraction: 0.2
+    synthetic_detection_publish_every_n_frames: 1
+    synthetic_detection_timestamp_offset_sec: 0.0
+    risk_radius_scale: 1.0
 
 scenarios:
   - id: person_center_fixed_soft

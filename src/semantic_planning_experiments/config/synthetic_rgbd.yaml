@@ -8,6 +8,17 @@ synthetic_rgbd_source:
     height: 48
     focal_length_px: 50.0
     depth_m: 2.0
+    depth_noise_std_m: 0.0
+    depth_invalid_fraction: 0.0
+    random_seed: 42
     detection_score: 0.95
+    person_count: 1
+    detection_center_x_fraction: 0.5
+    detection_center_y_fraction: 0.5
+    person_spacing_y_fraction: 0.2
+    bbox_width_fraction: 0.25
+    bbox_height_fraction: 0.5
+    detection_publish_every_n_frames: 1
+    detection_timestamp_offset_sec: 0.0
     publish_rate_hz: 10.0
     detections_active_duration_sec: 0.0
