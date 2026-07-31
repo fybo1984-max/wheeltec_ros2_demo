@@ -82,6 +82,7 @@ def _validate_parameters(value, description: str) -> dict:
             )
         if name in {
             'synthetic_depth_m',
+            'risk_value_scale',
             'risk_radius_scale',
         } and (
             isinstance(parameter_value, bool)

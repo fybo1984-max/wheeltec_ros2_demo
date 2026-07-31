@@ -60,6 +60,7 @@ def _comparison_inputs(report: dict) -> dict:
         'map_yaml_sha256': inputs['map_yaml_sha256'],
         'mask_yaml_sha256': inputs.get('mask_yaml_sha256'),
         'mask_image_sha256': inputs.get('mask_image_sha256'),
+        'mask_value_summary': inputs.get('mask_value_summary'),
         'planner_config_sha256': inputs['planner_config_sha256'],
         'mask_producer_config_sha256': inputs.get(
             'mask_producer_config_sha256'

@@ -32,9 +32,13 @@ topic and records the generated mask geometry before planning.
 Synthetic scenario arguments cover depth, seeded depth noise, invalid-depth
 fraction, random seed, confidence, exact class label, detection count and
 spacing, image position, detection-frame stride, timestamp offset, and
-semantic-radius scale. The runner records all values in
+independent semantic value/radius scales. The runner records all values in
 `mask_producer_runtime_parameters`, so the comparison fingerprint rejects
 trials with different injections.
+
+Topic-mask reports also record the positive OccupancyGrid value count,
+minimum, maximum, and mean. This confirms the effective semantic intensity
+instead of relying only on the requested scale parameter.
 
 Select one of the configured warehouse risk labels for a controller-free
 class-profile check:
@@ -194,6 +198,17 @@ ros2 run semantic_planning_experiments semantic_experiment_plan \
 It expands `person`, `forklift`, `pallet`, and `fragile_box` into 12 planned
 trials. These synthetic labels test the downstream risk profiles only; they do
 not measure detector precision or recall.
+
+Generate the independent risk-factor ablation plan:
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_risk_factor_ablation_manifest.yaml \
+  --output /tmp/semantic_paper_risk_factor_ablation_plan.json
+```
+
+It expands one shared nominal person profile, two value-only levels, and two
+radius-only levels into 15 controller-free trials.
 
 After the planned reports exist, audit every numeric criterion:
 

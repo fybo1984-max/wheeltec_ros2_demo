@@ -150,6 +150,7 @@ class SemanticMaskNode(Node):
         self.declare_parameter('risk_class_names', ['person'])
         self.declare_parameter('risk_class_values', [100])
         self.declare_parameter('risk_class_radii_m', [1.2])
+        self.declare_parameter('risk_value_scale', 1.0)
         self.declare_parameter('risk_radius_scale', 1.0)
 
     def _read_parameters(self) -> None:
@@ -180,6 +181,7 @@ class SemanticMaskNode(Node):
         names = list(value('risk_class_names'))
         risk_values = list(value('risk_class_values'))
         radii = list(value('risk_class_radii_m'))
+        value_scale = float(value('risk_value_scale'))
         radius_scale = float(value('risk_radius_scale'))
         if not names or len(names) != len(risk_values) or len(names) != len(radii):
             raise ValueError('risk class names, values, and radii must align')
@@ -188,6 +190,7 @@ class SemanticMaskNode(Node):
             profile = scale_risk_profile(
                 RiskProfile(int(risk_value), float(radius)),
                 radius_scale,
+                value_scale,
             )
             self._profiles[str(name).casefold()] = profile
 

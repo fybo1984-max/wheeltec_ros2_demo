@@ -1,0 +1,113 @@
+schema_version: 1
+study_id: semantic_costmap_risk_factor_ablation_v1
+description: >-
+  Controller-free person-profile ablation that varies risk intensity and
+  physical radius independently around one shared nominal reference.
+output_root: /tmp/semantic_costmap_risk_factor_ablation_v1
+domain_id_start: 180
+
+defaults:
+  package: semantic_planning_experiments
+  launch_file: generator_planner_ab.launch.py
+  repetitions: 3
+  parameters:
+    cost_mode: fuzzy
+    task_urgency: 0
+    avoidance_level: 70.0
+    start_x: 6.0
+    start_y: 0.0
+    start_yaw: 0.0
+    goal_x: 20.0
+    goal_y: 0.0
+    goal_yaw: 0.0
+    detection_active_duration_sec: 0.0
+    observation_hold_sec: 60.0
+    observation_decay_sec: 60.0
+    recovery_timeout_seconds: 0.0
+    synthetic_depth_m: 2.0
+    synthetic_depth_noise_std_m: 0.0
+    synthetic_depth_invalid_fraction: 0.0
+    synthetic_random_seed: 42
+    synthetic_detection_score: 0.95
+    synthetic_detection_class_id: person
+    synthetic_person_count: 1
+    synthetic_detection_center_x_fraction: 0.5
+    synthetic_detection_center_y_fraction: 0.5
+    synthetic_person_spacing_y_fraction: 0.2
+    synthetic_detection_publish_every_n_frames: 1
+    synthetic_detection_timestamp_offset_sec: 0.0
+    risk_value_scale: 1.0
+    risk_radius_scale: 1.0
+
+scenarios:
+  - id: nominal_reference
+    research_question: RQ6
+    hypothesis: The nominal person profile produces a repeatable safe detour.
+    factors:
+      varied_factor: reference
+      risk_value: 100
+      risk_radius_m: 1.2
+    acceptance:
+      - metric: semantic.semantic_crossing_length_m
+        operator: le
+        value: 0.05
+
+  - id: risk_value_low
+    research_question: RQ6
+    hypothesis: Lower intensity changes path cost without changing mask geometry.
+    factors:
+      varied_factor: risk_value
+      level: low
+      risk_value: 65
+      risk_radius_m: 1.2
+    parameters:
+      risk_value_scale: 0.65
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: risk_value_medium
+    research_question: RQ6
+    hypothesis: Medium intensity changes path cost without changing mask geometry.
+    factors:
+      varied_factor: risk_value
+      level: medium
+      risk_value: 85
+      risk_radius_m: 1.2
+    parameters:
+      risk_value_scale: 0.85
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: risk_radius_small
+    research_question: RQ6
+    hypothesis: A smaller radius changes mask geometry at nominal intensity.
+    factors:
+      varied_factor: risk_radius
+      level: small
+      risk_value: 100
+      risk_radius_m: 0.804
+    parameters:
+      risk_radius_scale: 0.67
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: risk_radius_large
+    research_question: RQ6
+    hypothesis: A larger radius changes mask geometry at nominal intensity.
+    factors:
+      varied_factor: risk_radius
+      level: large
+      risk_value: 100
+      risk_radius_m: 1.8
+    parameters:
+      risk_radius_scale: 1.5
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0

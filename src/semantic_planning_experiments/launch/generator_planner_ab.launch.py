@@ -84,6 +84,7 @@ def generate_launch_description():
     synthetic_timestamp_offset = LaunchConfiguration(
         'synthetic_detection_timestamp_offset_sec'
     )
+    risk_value_scale = LaunchConfiguration('risk_value_scale')
     risk_radius_scale = LaunchConfiguration('risk_radius_scale')
 
     return LaunchDescription([
@@ -173,6 +174,7 @@ def generate_launch_description():
             'synthetic_detection_timestamp_offset_sec',
             default_value='0.0',
         ),
+        DeclareLaunchArgument('risk_value_scale', default_value='1.0'),
         DeclareLaunchArgument('risk_radius_scale', default_value='1.0'),
         SetEnvironmentVariable('ROS_DOMAIN_ID', domain_id),
         SetEnvironmentVariable('ROS_LOCALHOST_ONLY', '1'),
@@ -188,6 +190,7 @@ def generate_launch_description():
                     'depth_is_registered': True,
                     'observation_hold_sec': observation_hold,
                     'observation_decay_sec': observation_decay,
+                    'risk_value_scale': risk_value_scale,
                     'risk_radius_scale': risk_radius_scale,
                 },
             ],
@@ -263,6 +266,7 @@ def generate_launch_description():
                     synthetic_detection_stride,
                 'producer_detection_timestamp_offset_sec':
                     synthetic_timestamp_offset,
+                'producer_risk_value_scale': risk_value_scale,
                 'producer_risk_radius_scale': risk_radius_scale,
                 'output_path': output_path,
                 'cost_mode': cost_mode,

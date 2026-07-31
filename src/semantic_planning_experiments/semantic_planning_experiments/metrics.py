@@ -169,6 +169,27 @@ def mask_grid_from_occupancy_data(
     )
 
 
+def occupancy_value_summary(data: Sequence[int]) -> dict:
+    """Summarize positive semantic risk values in OccupancyGrid order."""
+    values = np.asarray(data, dtype=np.int16)
+    if np.any(values < -1) or np.any(values > 100):
+        raise ValueError('OccupancyGrid values must be in [-1, 100]')
+    positive = values[values > 0]
+    return {
+        'positive_cell_count': int(positive.size),
+        'unknown_cell_count': int(np.count_nonzero(values < 0)),
+        'minimum_positive_value': (
+            int(np.min(positive)) if positive.size else None
+        ),
+        'maximum_positive_value': (
+            int(np.max(positive)) if positive.size else None
+        ),
+        'mean_positive_value': (
+            float(np.mean(positive)) if positive.size else None
+        ),
+    }
+
+
 def mask_geometry_summary(mask: MaskGrid) -> dict:
     """Summarize occupied semantic cells in map coordinates."""
     centers = mask.occupied_centers()

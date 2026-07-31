@@ -141,6 +141,7 @@ def test_manifest_rejects_invalid_cost_mode(tmp_path: Path):
         ('synthetic_person_count', 0),
         ('synthetic_detection_publish_every_n_frames', 0),
         ('synthetic_detection_class_id', ' '),
+        ('risk_value_scale', 0.0),
         ('risk_radius_scale', 0.0),
     ],
 )

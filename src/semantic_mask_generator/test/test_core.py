@@ -107,15 +107,25 @@ def test_observation_store_merges_nearby_same_class():
     assert active[0].x == 1.2
 
 
-def test_risk_profile_radius_scale_is_validated():
+def test_risk_profile_value_and_radius_scales_are_validated():
     profile = scale_risk_profile(
         RiskProfile(value=100, radius_m=1.2),
         1.5,
+        0.65,
     )
+    assert profile.value == 65
     assert profile.radius_m == pytest.approx(1.8)
 
     with pytest.raises(ValueError, match='scale'):
         scale_risk_profile(profile, 0.0)
+    with pytest.raises(ValueError, match='value scale'):
+        scale_risk_profile(profile, 1.0, 0.0)
+    with pytest.raises(ValueError, match='risk value'):
+        scale_risk_profile(
+            RiskProfile(value=100, radius_m=1.2),
+            1.0,
+            1.01,
+        )
 
 
 def test_observation_holds_then_decays_and_expires():

@@ -25,4 +25,5 @@ semantic_mask_generator:
     risk_class_names: [person, forklift, pallet, fragile_box]
     risk_class_values: [100, 95, 65, 85]
     risk_class_radii_m: [1.2, 1.8, 0.8, 1.0]
+    risk_value_scale: 1.0
     risk_radius_scale: 1.0

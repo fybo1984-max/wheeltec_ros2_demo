@@ -22,9 +22,10 @@ YOLO models. The other three labels require a detector trained for those exact
 warehouse classes (or an upstream label adapter). This repository does not
 contain or download model weights.
 
-`risk_radius_scale` applies a validated positive multiplier to every configured
-class radius. It is intended for controlled paper scenarios; the operational
-default is `1.0`.
+`risk_value_scale` and `risk_radius_scale` apply validated positive
+multipliers to every configured class value and radius. They are intended for
+controlled paper scenarios; both operational defaults are `1.0`. A scaled
+value must remain in `[1, 100]`.
 
 The output values are semantic risk intensities in `[0, 100]`. Configure
 `semantic_costmap_plugin::MaskLayer` with `mask_source: topic` and

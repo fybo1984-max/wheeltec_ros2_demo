@@ -15,6 +15,8 @@
   `src/semantic_planning_experiments/config/paper_robustness_manifest.yaml`
 - 仓储对象类别 manifest：
   `src/semantic_planning_experiments/config/paper_object_class_manifest.yaml`
+- 风险因素分离消融 manifest：
+  `src/semantic_planning_experiments/config/paper_risk_factor_ablation_manifest.yaml`
 - 当前结果不能替代真实 RGB-D 和实车正式实验。
 
 ## 研究问题
@@ -66,6 +68,14 @@ RQ4 尚未进入 Pilot v1，将在异常注入阶段加入。
 
 该问题当前只验证检测后的语义代价链路，不测量 YOLO 对这些类别的识别精度。
 除 `person` 外的类别需要后续自定义仓储检测模型或上游标签适配器。
+
+### RQ6：风险强度与保护半径分别如何影响路径
+
+固定人员类别、位置、地图和策略时，单独改变 OccupancyGrid 风险值或物理半径，
+是否分别改变 costmap 代价响应和风险区几何，并产生可解释的路径差异？
+
+报告必须同时保存请求的 `risk_value_scale`、`risk_radius_scale` 和实际 mask
+非零值统计，不能仅依据启动参数推断有效输入。
 
 ## 方法组
 
@@ -175,6 +185,21 @@ ros2 run semantic_planning_experiments semantic_experiment_plan \
 的几何基线路径；这验证了类别档案可保持软代价行为。该矩阵同时改变风险值和
 半径，只能比较完整风险档案，不能把差异单独归因于类别、风险强度或半径。
 合成标签也不构成真实检测精度证据。
+
+## 风险强度—半径分离消融计划
+
+该计划使用一个共享的 `person` 基准（风险值 100、半径 1.2 m），另设风险值
+65/85 两档且保持半径不变，以及半径 0.804/1.8 m 两档且保持风险值 100。
+共 5 个场景、15 个 trial，使用 ROS domain 180–194：
+
+```bash
+ros2 run semantic_planning_experiments semantic_experiment_plan \
+  src/semantic_planning_experiments/config/paper_risk_factor_ablation_manifest.yaml \
+  --output /tmp/semantic_paper_risk_factor_ablation_plan.json
+```
+
+该设计以同一基准分别比较强度和半径，不把对象类别差异混入因素效应。当前计划
+只定义 Pilot 水平；正式水平和验收阈值需依据 Pilot 结果冻结。
 
 生成报告后，逐 trial 应用 manifest 中的数值验收条件：
 

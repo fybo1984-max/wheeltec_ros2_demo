@@ -126,6 +126,9 @@ def generate_launch_description():
     producer_timestamp_offset = LaunchConfiguration(
         'producer_detection_timestamp_offset_sec'
     )
+    producer_risk_value_scale = LaunchConfiguration(
+        'producer_risk_value_scale'
+    )
     producer_risk_radius_scale = LaunchConfiguration(
         'producer_risk_radius_scale'
     )
@@ -228,6 +231,7 @@ def generate_launch_description():
                 producer_detection_stride,
             'producer_detection_timestamp_offset_sec':
                 producer_timestamp_offset,
+            'producer_risk_value_scale': producer_risk_value_scale,
             'producer_risk_radius_scale': producer_risk_radius_scale,
             'planner_config_path': os.path.join(
                 experiment_share, 'config', 'planner_ab.yaml'
@@ -340,6 +344,10 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'producer_detection_timestamp_offset_sec',
+            default_value='-1.0',
+        ),
+        DeclareLaunchArgument(
+            'producer_risk_value_scale',
             default_value='-1.0',
         ),
         DeclareLaunchArgument(

@@ -24,6 +24,7 @@ from semantic_planning_experiments.metrics import (
     mask_grid_from_occupancy_data,
     metric_delta,
     occupancy_data,
+    occupancy_value_summary,
     path_metrics,
     sha256_file,
 )
@@ -108,6 +109,21 @@ def test_occupancy_data_flips_image_rows_into_ros_grid_order(tmp_path: Path):
 def test_occupancy_grid_conversion_rejects_invalid_size():
     with pytest.raises(ValueError, match='data size'):
         mask_grid_from_occupancy_data(2, 2, 1.0, 0.0, 0.0, [0, 100])
+
+
+def test_occupancy_value_summary_preserves_semantic_intensity():
+    summary = occupancy_value_summary([-1, 0, 65, 65, 100])
+
+    assert summary == {
+        'positive_cell_count': 3,
+        'unknown_cell_count': 1,
+        'minimum_positive_value': 65,
+        'maximum_positive_value': 100,
+        'mean_positive_value': pytest.approx(230.0 / 3.0),
+    }
+
+    with pytest.raises(ValueError, match='values'):
+        occupancy_value_summary([101])
 
 
 def test_mask_geometry_summary_reports_world_bounds():

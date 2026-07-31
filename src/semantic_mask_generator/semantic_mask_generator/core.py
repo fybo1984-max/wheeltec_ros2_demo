@@ -56,12 +56,21 @@ class RiskProfile:
             raise ValueError('risk radius must be positive')
 
 
-def scale_risk_profile(profile: RiskProfile, radius_scale: float) -> RiskProfile:
-    """Return a validated profile with a reproducible radius multiplier."""
+def scale_risk_profile(
+    profile: RiskProfile,
+    radius_scale: float,
+    value_scale: float = 1.0,
+) -> RiskProfile:
+    """Return a validated profile with reproducible value/radius multipliers."""
     profile.validate()
     if not math.isfinite(radius_scale) or radius_scale <= 0.0:
         raise ValueError('risk radius scale must be positive')
-    scaled = RiskProfile(profile.value, profile.radius_m * radius_scale)
+    if not math.isfinite(value_scale) or value_scale <= 0.0:
+        raise ValueError('risk value scale must be positive')
+    scaled = RiskProfile(
+        int(round(profile.value * value_scale)),
+        profile.radius_m * radius_scale,
+    )
     scaled.validate()
     return scaled
 

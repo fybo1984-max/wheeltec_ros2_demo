@@ -101,10 +101,10 @@ colcon test-result \
 未知区、不降低既有致命障碍”的合并边界。动态生成包 13 项测试通过，其中
 10 项行为测试覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减、风险
 半径缩放和地图栅格化。
-规划器实验包 39 项测试通过，其中 36 项行为测试覆盖 Nav2 PGM 坐标转换、
+规划器实验包 41 项测试通过，其中 38 项行为测试覆盖 Nav2 PGM 坐标转换、
 OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、语义边界间距、
-指标差值、输入哈希、可比较性校验、统计汇总、路径重复性检测和论文 manifest
-安全展开及逐 trial 结果验收。
+实际风险值摘要、指标差值、输入哈希、可比较性校验、统计汇总、路径重复性检测
+和论文 manifest 安全展开及逐 trial 结果验收。
 
 ## 第二阶段：动态 RGB-D 风险 mask
 
@@ -381,6 +381,11 @@ ros2 run semantic_planning_experiments semantic_experiment_plan \
 几何完全重复。`person`、`forklift`、`fragile_box` 的语义路径均不穿越风险
 区；低风险 `pallet` 保持软代价，语义路径约 14.0169 m，仍穿越约 1.3469 m。
 该结果验证不同风险档案的下游响应，不代表真实 YOLO 已能识别这些仓储对象。
+
+风险因素分离计划 `paper_risk_factor_ablation_manifest.yaml` 使用一个共享
+人员基准，分别改变风险值和半径，共生成 5 个场景、15 个计划 trial（ROS
+domain 180–194）。报告额外保存实际 OccupancyGrid 正值的数量、最小值、
+最大值和均值，用于证明风险强度确实到达规划链路。
 
 ## 后续阶段与验收
 

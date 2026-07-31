@@ -40,6 +40,7 @@ from semantic_planning_experiments.metrics import (
     mask_grid_from_occupancy_data,
     metric_delta,
     occupancy_data,
+    occupancy_value_summary,
     path_metrics,
     sha256_file,
 )
@@ -102,6 +103,7 @@ class SemanticPlanningAB(Node):
             'producer_detection_timestamp_offset_sec',
             -1.0,
         )
+        self.declare_parameter('producer_risk_value_scale', -1.0)
         self.declare_parameter('producer_risk_radius_scale', -1.0)
         self.declare_parameter('map_yaml_path', '')
         self.declare_parameter('planner_config_path', '')
@@ -146,6 +148,7 @@ class SemanticPlanningAB(Node):
         )
         self._mask_publisher = None
         self._received_topic_mask = None
+        self._received_topic_mask_value_summary = None
         if self.get_parameter('mask_source').value == 'topic':
             mask_qos = QoSProfile(depth=1)
             mask_qos.reliability = ReliabilityPolicy.RELIABLE
@@ -260,9 +263,11 @@ class SemanticPlanningAB(Node):
                 message.info.origin.position.y,
                 message.data,
             )
+            value_summary = occupancy_value_summary(message.data)
         except ValueError:
             return
         self._received_topic_mask = mask
+        self._received_topic_mask_value_summary = value_summary
 
     def _wait_for_topic_mask(
         self,
@@ -552,6 +557,10 @@ class SemanticPlanningAB(Node):
                     sha256_file(mask.image_path) if mask.image_path else None
                 ),
                 'mask_grid': mask_geometry_summary(mask),
+                'mask_value_summary': (
+                    self._received_topic_mask_value_summary
+                    if mask_source == 'topic' else None
+                ),
                 'planner_config_path': str(planner_config_path),
                 'planner_config_sha256': sha256_file(planner_config_path),
                 'planner_id': self.get_parameter('planner_id').value,
@@ -654,6 +663,11 @@ class SemanticPlanningAB(Node):
                         'detection_timestamp_offset_sec': float(
                             self.get_parameter(
                                 'producer_detection_timestamp_offset_sec'
+                            ).value
+                        ),
+                        'risk_value_scale': float(
+                            self.get_parameter(
+                                'producer_risk_value_scale'
                             ).value
                         ),
                         'risk_radius_scale': float(
