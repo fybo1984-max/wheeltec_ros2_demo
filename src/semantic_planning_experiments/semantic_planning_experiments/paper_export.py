@@ -24,6 +24,7 @@ import json
 import math
 import os
 from pathlib import Path
+import statistics
 import sys
 
 from semantic_planning_experiments.metrics import sha256_file
@@ -35,9 +36,16 @@ _METRICS = (
     ('minimum_semantic_clearance_m', 'Minimum clearance', 'm'),
     ('planning_time_s', 'Planning time', 's'),
 )
-_VARYING_INPUTS = {
+_DEFAULT_VARYING_INPUTS = {
     'mask_value_summary',
     'mask_producer_runtime_parameters',
+}
+_EXPLICIT_VARYING_INPUTS = {
+    'semantic_layer_parameters.cost_mode',
+    'semantic_layer_parameters.task_urgency',
+    'semantic_layer_parameters.avoidance_level',
+    'start',
+    'goal',
 }
 _COLORS = (
     '#2563eb',
@@ -91,9 +99,12 @@ def _read_summary(path: Path) -> dict:
         raise ValueError(f'inconsistent code revision: {resolved}')
     if not summary['all_path_geometries_repeatable']:
         raise ValueError(f'non-repeatable path geometry: {resolved}')
-    semantic = summary['conditions'].get('semantic')
-    if not semantic or not semantic.get('path_geometry_repeatable'):
-        raise ValueError(f'non-repeatable semantic path geometry: {resolved}')
+    for condition_name in ('baseline', 'semantic'):
+        condition = summary['conditions'].get(condition_name)
+        if not condition or not condition.get('path_geometry_repeatable'):
+            raise ValueError(
+                f'non-repeatable {condition_name} path geometry: {resolved}'
+            )
     fingerprint = _canonical_sha256(summary['comparison_inputs'])
     if fingerprint != summary['comparison_fingerprint_sha256']:
         raise ValueError(f'invalid comparison fingerprint: {resolved}')
@@ -115,14 +126,16 @@ def _verify_input_reports(summary: dict, summary_path: Path) -> None:
             raise ValueError(f'input report checksum mismatch: {path}')
 
 
-def _metric(summary: dict, name: str, path: Path) -> dict:
+def _metric(summary: dict, condition: str, name: str, path: Path) -> dict:
     try:
-        metric = summary['conditions']['semantic']['metrics'][name]
+        metric = summary['conditions'][condition]['metrics'][name]
         mean = float(metric['mean'])
         stddev = float(metric['population_stddev'])
         count = int(metric['count'])
     except (KeyError, TypeError, ValueError) as error:
-        raise ValueError(f'invalid semantic metric {name}: {path}') from error
+        raise ValueError(
+            f'invalid {condition} metric {name}: {path}'
+        ) from error
     if count != summary['trial_count']:
         raise ValueError(
             f'metric count does not match trials for {name}: {path}'
@@ -132,17 +145,77 @@ def _metric(summary: dict, name: str, path: Path) -> dict:
     return {'mean': mean, 'population_stddev': stddev}
 
 
-def _fixed_inputs(summary: dict) -> dict:
+def _path_value(value: dict, dotted_path: str):
+    current = value
+    for name in dotted_path.split('.'):
+        if not isinstance(current, dict) or name not in current:
+            raise ValueError(f'varying input does not exist: {dotted_path}')
+        current = current[name]
+    return current
+
+
+def _fixed_inputs(summary: dict, varying_inputs: set[str]) -> dict:
+    fixed = json.loads(json.dumps(summary['comparison_inputs']))
+    for dotted_path in varying_inputs:
+        names = dotted_path.split('.')
+        parent = fixed
+        for name in names[:-1]:
+            parent = parent[name]
+        del parent[names[-1]]
+    return fixed
+
+
+def _paired_delta(summary: dict, name: str, summary_path: Path) -> dict:
+    values = []
+    for reference in summary['input_reports']:
+        report_path = Path(reference['path']).expanduser().resolve()
+        report = json.loads(report_path.read_text(encoding='utf-8'))
+        try:
+            baseline = float(report['baseline']['metrics'][name])
+            semantic = float(report['semantic']['metrics'][name])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(
+                f'invalid paired metric {name}: {report_path}'
+            ) from error
+        if not math.isfinite(baseline) or not math.isfinite(semantic):
+            raise ValueError(f'non-finite paired metric {name}: {report_path}')
+        values.append(semantic - baseline)
+    if len(values) != summary['trial_count']:
+        raise ValueError(f'paired metric count mismatch: {summary_path}')
     return {
-        key: value
-        for key, value in summary['comparison_inputs'].items()
-        if key not in _VARYING_INPUTS
+        'count': len(values),
+        'mean': statistics.fmean(values),
+        'population_stddev': statistics.pstdev(values),
     }
+
+
+def _scenario_metrics(summary: dict, path: Path) -> dict:
+    metrics = {}
+    for name, _, _ in _METRICS:
+        baseline = _metric(summary, 'baseline', name, path)
+        semantic = _metric(summary, 'semantic', name, path)
+        delta = _paired_delta(summary, name, path)
+        if not math.isclose(
+            delta['mean'],
+            semantic['mean'] - baseline['mean'],
+            rel_tol=1e-12,
+            abs_tol=1e-12,
+        ):
+            raise ValueError(
+                f'paired delta is inconsistent for {name}: {path}'
+            )
+        metrics[name] = {
+            'baseline': baseline,
+            'semantic': semantic,
+            'semantic_minus_baseline': delta,
+        }
+    return metrics
 
 
 def prepare_export(
     study_title: str,
     scenarios: list[tuple[str, Path]],
+    varying_inputs: set[str] | None = None,
 ) -> dict:
     """Validate summaries and return the normalized export dataset."""
     if not study_title.strip():
@@ -154,13 +227,22 @@ def prepare_export(
         raise ValueError('scenario labels must not be empty')
     if len(set(labels)) != len(labels):
         raise ValueError('scenario labels must be unique')
+    explicit_varying = set(varying_inputs or ())
+    unsupported = explicit_varying - _EXPLICIT_VARYING_INPUTS
+    if unsupported:
+        raise ValueError(f'unsupported varying inputs: {sorted(unsupported)}')
+    declared_varying = _DEFAULT_VARYING_INPUTS | explicit_varying
 
     loaded = []
     common_inputs = None
     for label, path in zip(labels, (item[1] for item in scenarios)):
         resolved = path.expanduser().resolve()
         summary = _read_summary(resolved)
-        fixed_inputs = _fixed_inputs(summary)
+        scenario_varying = {
+            name: _path_value(summary['comparison_inputs'], name)
+            for name in sorted(declared_varying)
+        }
+        fixed_inputs = _fixed_inputs(summary, declared_varying)
         if common_inputs is None:
             common_inputs = fixed_inputs
         elif fixed_inputs != common_inputs:
@@ -173,21 +255,23 @@ def prepare_export(
             'comparison_fingerprint_sha256': (
                 summary['comparison_fingerprint_sha256']
             ),
-            'varying_inputs': {
-                name: summary['comparison_inputs'].get(name)
-                for name in sorted(_VARYING_INPUTS)
-            },
-            'metrics': {
-                name: _metric(summary, name, resolved)
-                for name, _, _ in _METRICS
-            },
+            'varying_inputs': scenario_varying,
+            'metrics': _scenario_metrics(summary, resolved),
         })
 
     assert common_inputs is not None
+    for name in explicit_varying:
+        values = {
+            _canonical_sha256(item['varying_inputs'][name])
+            for item in loaded
+        }
+        if len(values) < 2:
+            raise ValueError(f'declared input does not vary: {name}')
     return {
         'study_title': study_title.strip(),
         'code_revision': common_inputs['code_revision'],
         'common_inputs': common_inputs,
+        'declared_varying_inputs': sorted(declared_varying),
         'study_fingerprint_sha256': _canonical_sha256({
             'common_inputs': common_inputs,
             'scenarios': [
@@ -207,7 +291,15 @@ def render_csv(dataset: dict) -> str:
     stream = io.StringIO(newline='')
     fieldnames = ['scenario', 'trial_count', 'code_revision']
     for name, _, _ in _METRICS:
-        fieldnames.extend((name + '_mean', name + '_population_stddev'))
+        for condition in (
+            'baseline',
+            'semantic',
+            'semantic_minus_baseline',
+        ):
+            fieldnames.extend((
+                f'{condition}_{name}_mean',
+                f'{condition}_{name}_population_stddev',
+            ))
     writer = csv.DictWriter(stream, fieldnames=fieldnames, lineterminator='\n')
     writer.writeheader()
     for scenario in dataset['scenarios']:
@@ -217,12 +309,18 @@ def render_csv(dataset: dict) -> str:
             'code_revision': dataset['code_revision'],
         }
         for name, _, _ in _METRICS:
-            row[name + '_mean'] = format(
-                scenario['metrics'][name]['mean'], '.9g'
-            )
-            row[name + '_population_stddev'] = format(
-                scenario['metrics'][name]['population_stddev'], '.9g'
-            )
+            for condition in (
+                'baseline',
+                'semantic',
+                'semantic_minus_baseline',
+            ):
+                metric = scenario['metrics'][name][condition]
+                row[f'{condition}_{name}_mean'] = format(
+                    metric['mean'], '.9g'
+                )
+                row[
+                    f'{condition}_{name}_population_stddev'
+                ] = format(metric['population_stddev'], '.9g')
         writer.writerow(row)
     return stream.getvalue()
 
@@ -234,8 +332,8 @@ def _svg_panel(dataset: dict, metric, x: int, y: int, width: int) -> list[str]:
     value_width = 122
     plot_width = width - label_width - value_width - 28
     maximum = max(
-        item['metrics'][name]['mean']
-        + item['metrics'][name]['population_stddev']
+        item['metrics'][name]['semantic']['mean']
+        + item['metrics'][name]['semantic']['population_stddev']
         for item in scenarios
     )
     if maximum <= 0.0:
@@ -249,8 +347,9 @@ def _svg_panel(dataset: dict, metric, x: int, y: int, width: int) -> list[str]:
     ]
     for index, scenario in enumerate(scenarios):
         row_y = 49 + index * 36
-        mean = scenario['metrics'][name]['mean']
-        stddev = scenario['metrics'][name]['population_stddev']
+        metric_values = scenario['metrics'][name]['semantic']
+        mean = metric_values['mean']
+        stddev = metric_values['population_stddev']
         bar_width = mean / maximum * plot_width
         whisker_start = max(0.0, mean - stddev) / maximum * plot_width
         whisker_end = (mean + stddev) / maximum * plot_width
@@ -301,8 +400,8 @@ def render_svg(dataset: dict) -> str:
         f'<text class="title" x="20" y="30">'
         f'{escape(dataset["study_title"])}</text>',
         f'<text class="subtitle" x="20" y="51">revision '
-        f'{escape(str(dataset["code_revision"]))}; values are mean ± '
-        'population standard deviation</text>',
+        f'{escape(str(dataset["code_revision"]))}; semantic values are '
+        'mean ± population standard deviation</text>',
     ]
     positions = (
         (20, 68),
@@ -396,12 +495,22 @@ def main(args=None) -> None:
         type=_parse_scenario,
         help='Scenario label and summary in LABEL=SUMMARY.json form.',
     )
+    parser.add_argument(
+        '--vary-input',
+        action='append',
+        choices=sorted(_EXPLICIT_VARYING_INPUTS),
+        help='Explicit experimental factor allowed to differ.',
+    )
     parser.add_argument('--csv-output', required=True, type=Path)
     parser.add_argument('--svg-output', required=True, type=Path)
     parser.add_argument('--manifest-output', required=True, type=Path)
     parsed = parser.parse_args(args)
     try:
-        dataset = prepare_export(parsed.study_title, parsed.scenario)
+        dataset = prepare_export(
+            parsed.study_title,
+            parsed.scenario,
+            set(parsed.vary_input or ()),
+        )
         outputs = write_export(
             dataset,
             parsed.csv_output,

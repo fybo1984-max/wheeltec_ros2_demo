@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import copy
+import csv
 import hashlib
+import io
 import json
 from pathlib import Path
 
@@ -44,9 +46,12 @@ def _canonical_sha256(value) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _summary(tmp_path: Path, name: str, path_length: float = 10.0) -> Path:
-    report_path = tmp_path / f'{name}_trial.json'
-    report_path.write_text('{"trial": 1}\n', encoding='utf-8')
+def _summary(
+    tmp_path: Path,
+    name: str,
+    path_length: float = 10.0,
+    cost_mode: str = 'fuzzy',
+) -> Path:
     comparison_inputs = {
         'schema_version': 1,
         'code_revision': 'abc123',
@@ -55,19 +60,49 @@ def _summary(tmp_path: Path, name: str, path_length: float = 10.0) -> Path:
         'mask_value_summary': {'maximum': 100},
         'mask_producer_runtime_parameters': {'risk_radius_scale': 1.0},
         'planner_id': 'GridBased',
-        'semantic_layer_parameters': {'cost_mode': 'fuzzy'},
+        'semantic_layer_parameters': {'cost_mode': cost_mode},
         'start': {'x': 0.0, 'y': 0.0},
         'goal': {'x': 2.0, 'y': 0.0},
     }
-    metrics = {
-        metric: {
-            'count': 1,
-            'mean': path_length if metric == 'path_length_m' else 0.1,
-            'population_stddev': 0.0,
-            'minimum': 0.1,
-            'maximum': 0.1,
+    baseline_values = {
+        'path_length_m': 8.0,
+        'semantic_crossing_length_m': 0.5,
+        'minimum_semantic_clearance_m': 0.0,
+        'planning_time_s': 0.05,
+    }
+    semantic_values = {
+        'path_length_m': path_length,
+        'semantic_crossing_length_m': 0.1,
+        'minimum_semantic_clearance_m': 0.2,
+        'planning_time_s': 0.1,
+    }
+
+    def summarized(values: dict) -> dict:
+        return {
+            metric: {
+                'count': 1,
+                'mean': values[metric],
+                'population_stddev': 0.0,
+                'minimum': values[metric],
+                'maximum': values[metric],
+            }
+            for metric in _METRIC_NAMES
         }
-        for metric in _METRIC_NAMES
+
+    report_path = tmp_path / f'{name}_trial.json'
+    report_path.write_text(json.dumps({
+        'baseline': {'metrics': baseline_values},
+        'semantic': {'metrics': semantic_values},
+    }), encoding='utf-8')
+    conditions = {
+        name: {
+            'path_geometry_repeatable': True,
+            'metrics': summarized(values),
+        }
+        for name, values in (
+            ('baseline', baseline_values),
+            ('semantic', semantic_values),
+        )
     }
     summary = {
         'schema_version': 1,
@@ -78,12 +113,7 @@ def _summary(tmp_path: Path, name: str, path_length: float = 10.0) -> Path:
         ),
         'comparison_inputs': comparison_inputs,
         'all_path_geometries_repeatable': True,
-        'conditions': {
-            'semantic': {
-                'path_geometry_repeatable': True,
-                'metrics': metrics,
-            },
-        },
+        'conditions': conditions,
         'input_reports': [{
             'path': str(report_path),
             'sha256': _sha256(report_path),
@@ -116,10 +146,12 @@ def test_export_writes_csv_svg_and_audit_manifest(tmp_path: Path):
         tmp_path / 'audit.json',
     )
     manifest = json.loads(outputs['manifest'].read_text())
-    csv_text = outputs['csv'].read_text()
+    rows = list(csv.DictReader(io.StringIO(outputs['csv'].read_text())))
     svg_text = outputs['svg'].read_text()
 
-    assert 'Near,1,abc123,10,0' in csv_text
+    assert rows[0]['baseline_path_length_m_mean'] == '8'
+    assert rows[0]['semantic_path_length_m_mean'] == '10'
+    assert rows[0]['semantic_minus_baseline_path_length_m_mean'] == '2'
     assert 'Far &amp; fragile' in svg_text
     assert manifest['code_revision'] == 'abc123'
     assert manifest['outputs']['csv']['sha256'] == _sha256(outputs['csv'])
@@ -178,6 +210,44 @@ def test_export_rejects_incomparable_fixed_inputs(tmp_path: Path):
 
     with pytest.raises(ValueError, match='not comparable'):
         prepare_export('Study', [('First', first), ('Second', second)])
+
+
+def test_export_allows_explicit_method_factor_and_records_values(
+    tmp_path: Path,
+):
+    first = _summary(tmp_path, 'first', cost_mode='fixed')
+    second = _summary(tmp_path, 'second', cost_mode='fuzzy')
+
+    dataset = prepare_export(
+        'Method ablation',
+        [('Fixed', first), ('Fuzzy', second)],
+        {'semantic_layer_parameters.cost_mode'},
+    )
+
+    factor = 'semantic_layer_parameters.cost_mode'
+    assert factor in dataset['declared_varying_inputs']
+    assert dataset['scenarios'][0]['varying_inputs'][factor] == 'fixed'
+    assert dataset['scenarios'][1]['varying_inputs'][factor] == 'fuzzy'
+
+
+def test_export_rejects_undeclared_method_factor(tmp_path: Path):
+    first = _summary(tmp_path, 'first', cost_mode='fixed')
+    second = _summary(tmp_path, 'second', cost_mode='fuzzy')
+
+    with pytest.raises(ValueError, match='not comparable'):
+        prepare_export('Study', [('Fixed', first), ('Fuzzy', second)])
+
+
+def test_export_rejects_declared_factor_that_does_not_vary(tmp_path: Path):
+    first = _summary(tmp_path, 'first')
+    second = _summary(tmp_path, 'second')
+
+    with pytest.raises(ValueError, match='does not vary'):
+        prepare_export(
+            'Study',
+            [('First', first), ('Second', second)],
+            {'semantic_layer_parameters.cost_mode'},
+        )
 
 
 def test_export_rejects_changed_source_report(tmp_path: Path):

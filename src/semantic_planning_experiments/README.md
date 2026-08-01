@@ -161,12 +161,29 @@ ros2 run semantic_planning_experiments semantic_paper_export \
 ```
 
 The exporter requires a clean common code revision, repeated path geometry,
-matching fixed map/planner/route/policy inputs, and unchanged SHA-256 digests
-for every source trial. Only the mask value summary and mask-producer runtime
-parameters may differ between scenarios. The CSV and SVG contain semantic
-path length, risk crossing, minimum clearance, and planning time as mean and
-population standard deviation. The manifest preserves every input and output
-digest so plotted values can be traced back to their raw JSON reports.
+matching fixed inputs, and unchanged SHA-256 digests for every source trial.
+Mask values and mask-producer runtime parameters are scenario factors by
+default. A method or policy ablation must explicitly declare every additional
+factor, for example:
+
+```bash
+ros2 run semantic_planning_experiments semantic_paper_export \
+  --study-title "Method ablation" \
+  --vary-input semantic_layer_parameters.cost_mode \
+  --scenario "Fixed=/tmp/fixed_summary.json" \
+  --scenario "Fuzzy=/tmp/fuzzy_summary.json" \
+  --csv-output /tmp/methods.csv \
+  --svg-output /tmp/methods.svg \
+  --manifest-output /tmp/methods_manifest.json
+```
+
+Undeclared differences remain fatal, and a declared factor that does not
+actually vary is also rejected. The CSV contains baseline, semantic, and
+paired `semantic_minus_baseline` mean and population standard deviation for
+path length, risk crossing, minimum clearance, and planning time. Paired
+deltas are rebuilt from the original trial reports, not subtracted from
+rounded table values. The SVG displays semantic-condition values. The
+manifest preserves declared factor values and every input/output digest.
 
 Validate and expand the paper pilot manifest without executing any launch:
 
