@@ -81,7 +81,7 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 语义 costmap 插件：10 个 CTest 全部通过，其中 14 个行为测试通过。
 - 动态语义 mask：13 项测试通过，其中 10 项投影、衰减、半径缩放和栅格化
   行为测试通过。
-- 规划器级 A/B 实验包：61 项测试通过，其中 58 项地图坐标、动态栅格转换、
+- 规划器级 A/B 实验包：70 项测试通过，其中 67 项地图坐标、动态栅格转换、
   路径指标、重复试验统计、论文 manifest、结果验收和成果导出行为测试
   通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
 - 默认模板路线的两次离线规划得到完全相同的路径几何：基线穿越语义区约
@@ -146,6 +146,9 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 配对统计增加 95% Student-t 区间、Cohen's dz 和双侧符号翻转检验；小样本
   精确枚举，大样本使用固定种子 Monte Carlo。当前每组 `n=3` 的最小双侧
   p 值为 0.25，工具明确保留该限制，不把确定性重复误写成统计显著。
+- 新增研究协议冻结与验证工具，要求干净 Git revision、预期分支、跟踪资产、
+  安全采集范围、完整样本分配和匹配实现的统计设置。Recorded RGB-D Pilot v1
+  预注册 12 个独立 Rosbag 单元，明确同一 bag 的帧和重复回放不增加样本量。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。

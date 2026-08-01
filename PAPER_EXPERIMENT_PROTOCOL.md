@@ -17,6 +17,8 @@
   `src/semantic_planning_experiments/config/paper_object_class_manifest.yaml`
 - 风险因素分离消融 manifest：
   `src/semantic_planning_experiments/config/paper_risk_factor_ablation_manifest.yaml`
+- Recorded RGB-D Pilot 预注册协议：
+  `src/semantic_planning_experiments/config/recorded_rgbd_pilot_protocol.yaml`
 - 当前结果不能替代真实 RGB-D 和实车正式实验。
 
 ## 研究问题
@@ -110,6 +112,23 @@ semantic 及逐 trial 配对的 `semantic_minus_baseline`，覆盖路径长度�
 重建，不从显示精度有限的表格数字相减。manifest 保存因素值、场景摘要、原始
 输入和成果文件的路径与散列，作为从论文图表回溯到原始 JSON 的审计链。建议
 正式实验成果输出到独立归档目录，不提交临时 Pilot 数据到代码仓库。
+
+## Recorded RGB-D Pilot v1 预注册
+
+进入真实相机采集前，使用 `semantic_protocol_freeze` 将预注册协议绑定到干净的
+`innovation` revision、协议源文件和全部声明配置 SHA-256。锁文件保存在仓库
+外；revision、分支、协议或任一配置变化后，旧锁验证必须失败，不允许静默沿用。
+
+该 Pilot 是非验证性的方差估计与可行性研究，共 12 个独立实验单元：人员近距、
+标称距离和远距各 4 个独立 Rosbag。每个单元必须重新开始录制并重新放置人员；
+同一 bag 的视频帧、检测、重复回放或重复规划都是单元内嵌套测量，不能增加样本
+量。主要终点为地图投影误差和配对风险区穿越长度；最小间距、路径开销、mask
+延迟和陈旧风险清除时间为次要终点。该 `n=12` 只用于估计正式实验方差和检查
+数据链路，不能作为验证性疗效样本量。
+
+采集协议允许物理相机但禁止 controller、底盘运动和速度命令，并要求开始前
+通知现场操作人员。原始 Rosbag、模型权重和锁文件均保存在代码仓库外；技术无效
+单元不得删除，必须保留原因。规划失败属于结果，不得作为排除条件。
 
 ## Pilot v1 场景
 

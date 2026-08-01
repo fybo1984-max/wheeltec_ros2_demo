@@ -190,6 +190,30 @@ paired effects keep Cohen's dz empty instead of reporting infinity. The SVG
 displays semantic-condition values. The manifest preserves the full
 statistics, declared factor values, and every input/output digest.
 
+Freeze the recorded RGB-D pilot protocol on a clean tracked revision:
+
+```bash
+ros2 run semantic_planning_experiments semantic_protocol_freeze \
+  src/semantic_planning_experiments/config/recorded_rgbd_pilot_protocol.yaml \
+  --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
+  --output /tmp/semantic_recorded_rgbd_pilot_v1.lock.json
+```
+
+Verify the lock later against the checked-out revision and assets:
+
+```bash
+ros2 run semantic_planning_experiments semantic_protocol_freeze \
+  --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
+  --verify-lock /tmp/semantic_recorded_rgbd_pilot_v1.lock.json
+```
+
+The freezer rejects dirty worktrees, wrong branches, untracked or external
+assets, unsafe collection scope, sample-allocation errors, statistical
+settings that differ from the implementation, and confirmatory designs
+without multiplicity control. The lock binds normalized protocol content,
+Git revision, source protocol, and every declared configuration SHA-256.
+Lock files and recorded data remain outside the repository.
+
 Validate and expand the paper pilot manifest without executing any launch:
 
 ```bash

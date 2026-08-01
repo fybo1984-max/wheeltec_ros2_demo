@@ -1,0 +1,129 @@
+schema_version: 1
+protocol_id: semantic_recorded_rgbd_pilot_v1
+title: Recorded RGB-D semantic mask and planning feasibility pilot
+phase: recorded_rgbd_pilot
+expected_branch: innovation
+confirmatory: false
+
+research_questions:
+  - id: RQ1
+    hypothesis: >-
+      A semantic mask produced from recorded RGB-D observations reduces
+      person-risk-zone crossing relative to the paired disabled-layer path.
+  - id: RQ4
+    hypothesis: >-
+      Recorded sensor variation preserves bounded projection error and clears
+      stale person risk after detections disappear.
+
+methods:
+  - baseline
+  - fuzzy
+
+experimental_unit:
+  name: independent_rosbag_recording
+  independence_rule: >-
+    Each unit is a separately started recording with a newly positioned person;
+    repeated playback or repeated planning of one bag is not a new unit.
+  pseudoreplication_rule: >-
+    Frames, detections, repeated playback and repeated planner calls from the
+    same bag remain nested measurements within one experimental unit.
+
+endpoints:
+  primary:
+    - id: projection_error
+      metric: perception.mask_centroid_position_error_m
+      direction: lower
+      analysis: descriptive
+      rationale: >-
+        Map-frame risk must correspond to the independently measured person
+        position before navigation effects are interpreted.
+    - id: risk_crossing
+      metric: semantic.semantic_crossing_length_m
+      direction: lower
+      analysis: paired
+      rationale: >-
+        Risk-zone crossing is the primary semantic navigation safety outcome.
+  secondary:
+    - id: minimum_clearance
+      metric: semantic.minimum_semantic_clearance_m
+      direction: higher
+      analysis: paired
+      rationale: Clearance describes risk separation when a detour is feasible.
+    - id: path_overhead
+      metric: delta_semantic_minus_baseline.path_length_m
+      direction: lower
+      analysis: paired
+      rationale: Path overhead measures the efficiency cost of semantic safety.
+    - id: mask_latency
+      metric: perception.detection_to_mask_latency_s
+      direction: lower
+      analysis: descriptive
+      rationale: Latency bounds how quickly a recorded detection becomes risk.
+    - id: stale_clearance
+      metric: perception.stale_risk_clearance_s
+      direction: lower
+      analysis: descriptive
+      rationale: Temporary risks must not remain after observations disappear.
+
+sample_size:
+  total_independent_units: 12
+  allocation:
+    person_near: 4
+    person_nominal: 4
+    person_far: 4
+  purpose: variance_estimation
+  rationale: >-
+    This non-confirmatory pilot estimates projection, latency and paired path
+    variability for a later power calculation; it is not an efficacy sample.
+
+statistics:
+  alpha: 0.05
+  confidence_level: 0.95
+  paired_test: sign_flip
+  exact_pair_limit: 16
+  monte_carlo_samples: 100000
+  monte_carlo_seed: 20260801
+  effect_size: cohen_dz
+  zero_variance_effect: "null"
+  multiple_comparisons: none
+
+exclusion_rules:
+  - The bag is unreadable or incomplete before outcome analysis.
+  - A required topic has no messages for the planned observation interval.
+  - Camera calibration or required map-to-camera TF metadata is unavailable.
+  - The independently measured person position was not recorded.
+  - The recording procedure deviated from its assigned distance stratum.
+
+missing_data_policy: >-
+  Do not impute outcomes. Preserve invalid and missing units in the audit log;
+  recollection is allowed only for a predeclared technical exclusion and must
+  receive a new unit identifier. Planning failure is an outcome, not exclusion.
+
+data_collection:
+  required_topics:
+    - /camera/color/image_raw
+    - /camera/aligned_depth_to_color/image_raw
+    - /camera/color/camera_info
+    - /tf
+    - /tf_static
+    - /detections
+  required_metadata:
+    - camera_model_and_serial
+    - detector_model_sha256
+    - map_yaml_sha256
+    - measured_person_pose_in_map
+    - recording_start_and_end_utc
+  storage_policy: outside_repository
+
+collection_scope:
+  controller_allowed: false
+  hardware_motion_allowed: false
+  velocity_commands_allowed: false
+  physical_camera_allowed: true
+  operator_notification_required: true
+
+assets:
+  - src/semantic_planning_experiments/config/planner_ab.yaml
+  - src/semantic_planning_experiments/config/paper_scenario_matrix_manifest.yaml
+  - src/semantic_planning_experiments/config/paper_robustness_manifest.yaml
+  - src/semantic_mask_generator/config/semantic_mask.yaml
