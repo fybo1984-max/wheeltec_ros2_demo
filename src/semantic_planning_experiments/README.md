@@ -214,6 +214,34 @@ without multiplicity control. The lock binds normalized protocol content,
 Git revision, source protocol, and every declared configuration SHA-256.
 Lock files and recorded data remain outside the repository.
 
+Initialize the external archive ledger from a verified lock:
+
+```bash
+ros2 run semantic_planning_experiments semantic_archive_audit \
+  --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
+  --protocol-lock /tmp/semantic_recorded_rgbd_pilot_v1.lock.json \
+  --initialize-index /tmp/semantic_recorded_rgbd_archive_v1/index.yaml
+```
+
+Audit the archive without modifying its bags or unit metadata:
+
+```bash
+ros2 run semantic_planning_experiments semantic_archive_audit \
+  --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
+  --protocol-lock /tmp/semantic_recorded_rgbd_pilot_v1.lock.json \
+  --audit-index /tmp/semantic_recorded_rgbd_archive_v1/index.yaml \
+  --output /tmp/semantic_recorded_rgbd_archive_v1/audit.json
+```
+
+The initialized index contains every preregistered independent unit and never
+overwrites an existing ledger. The audit requires an exact protocol binding,
+archive-contained relative paths, Rosbag `metadata.yaml`, all required topics
+with messages, required per-unit metadata, and SHA-256 inventories for every
+bag file. Planned units are visible as missing; invalid units require a reason
+and retain available artifact hashes. Existing artifacts with a still-planned
+status are invalid rather than silently ignored. The command returns nonzero
+until every planned unit passes.
+
 Validate and expand the paper pilot manifest without executing any launch:
 
 ```bash

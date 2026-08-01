@@ -34,6 +34,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'semantic_archive_audit = '
+            'semantic_planning_experiments.archive_audit:main',
             'semantic_experiment_evaluate = '
             'semantic_planning_experiments.experiment_evaluate:main',
             'semantic_experiment_plan = '

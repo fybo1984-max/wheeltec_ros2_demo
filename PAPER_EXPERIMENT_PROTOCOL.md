@@ -130,6 +130,14 @@ semantic 及逐 trial 配对的 `semantic_minus_baseline`，覆盖路径长度�
 通知现场操作人员。原始 Rosbag、模型权重和锁文件均保存在代码仓库外；技术无效
 单元不得删除，必须保留原因。规划失败属于结果，不得作为排除条件。
 
+`semantic_archive_audit` 从冻结锁生成仓库外归档索引，预先列出全部 12 个单元。
+每个标记为 `collected` 的单元必须具有 Rosbag `metadata.yaml`、协议要求且消息数
+大于零的 topic、独立 JSON 元数据和递归文件 SHA-256 清单。`planned`、`invalid`
+和 `passed` 分开计数；技术无效单元必须填写原因，并尽可能保留已有文件哈希。
+如果文件已经存在但索引仍为 `planned`，审计将其视为未登记的无效状态，而不是
+静默算作缺失。只有 12/12 `passed` 时 `analysis_ready=true`，否则命令写出审计
+报告后返回非零状态。
+
 ## Pilot v1 场景
 
 | 场景 | RQ | 重复数 | 策略 | 主要验收条件 |
