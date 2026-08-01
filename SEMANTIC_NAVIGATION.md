@@ -363,9 +363,14 @@ trial 通过才返回成功，缺失、失败、dirty revision 和不安全报�
 多场景 `paper_scenario_matrix_manifest.yaml` 和感知扰动
 `paper_robustness_manifest.yaml` 各生成 6 个场景、18 个计划 trial。前者覆盖
 人员距离、数量和风险半径；后者覆盖固定种子深度噪声、无效深度、检测丢帧、
-同步偏移和置信度边界。干净提交 `e47a105` 已各完成 1 个无控制器 smoke
-trial，均成功规划且风险区穿越为 0；其余 trial 未执行。计划生成命令本身
-不会启动 Nav2。
+同步偏移和置信度边界。多场景计划在干净提交 `e47a105` 完成 1 个 smoke
+trial，其余 17 项未执行。
+
+干净提交 `fc45dac` 的鲁棒性矩阵 18/18 已通过验收，六组内部路径完全重复且
+风险区穿越均为 0。50% 无效深度、50% 检测丢帧、0.10 s 时间偏移和 0.55
+置信度与无扰动路径逐点一致；0.10 m 固定种子深度噪声使 mask 质心约偏移
+1.1 cm，并触发 16.2976 m 的不同路径。该结果支持“安全指标保持、路径拓扑
+对深度噪声敏感”，不支持笼统的完全路径稳定结论。
 
 仓储对象类别 `paper_object_class_manifest.yaml` 生成 `person`、`forklift`、
 `pallet`、`fragile_box` 各 3 次、共 12 个计划 trial（ROS domain
