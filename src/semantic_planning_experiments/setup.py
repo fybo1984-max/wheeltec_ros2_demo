@@ -39,6 +39,8 @@ setup(
             'semantic_experiment_plan = '
             'semantic_planning_experiments.experiment_manifest:main',
             'semantic_planning_ab = semantic_planning_experiments.runner:main',
+            'semantic_paper_export = '
+            'semantic_planning_experiments.paper_export:main',
             'semantic_planning_summary = '
             'semantic_planning_experiments.report_summary:main',
             'synthetic_rgbd_source = '

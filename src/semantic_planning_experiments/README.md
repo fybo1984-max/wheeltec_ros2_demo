@@ -147,6 +147,27 @@ The summarizer rejects dirty revisions and mismatched code, configuration,
 route, source, or policy inputs. It reports metric mean, population standard
 deviation, range, and exact path SHA-256 repeatability for each condition.
 
+Export two or more scenario summaries as a paper table, four-metric SVG, and
+an audit manifest:
+
+```bash
+ros2 run semantic_planning_experiments semantic_paper_export \
+  --study-title "Scenario matrix Pilot v1" \
+  --scenario "Near=/tmp/near_summary.json" \
+  --scenario "Nominal=/tmp/nominal_summary.json" \
+  --csv-output /tmp/scenario_matrix.csv \
+  --svg-output /tmp/scenario_matrix.svg \
+  --manifest-output /tmp/scenario_matrix_manifest.json
+```
+
+The exporter requires a clean common code revision, repeated path geometry,
+matching fixed map/planner/route/policy inputs, and unchanged SHA-256 digests
+for every source trial. Only the mask value summary and mask-producer runtime
+parameters may differ between scenarios. The CSV and SVG contain semantic
+path length, risk crossing, minimum clearance, and planning time as mean and
+population standard deviation. The manifest preserves every input and output
+digest so plotted values can be traced back to their raw JSON reports.
+
 Validate and expand the paper pilot manifest without executing any launch:
 
 ```bash

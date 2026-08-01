@@ -81,8 +81,8 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 语义 costmap 插件：10 个 CTest 全部通过，其中 14 个行为测试通过。
 - 动态语义 mask：13 项测试通过，其中 10 项投影、衰减、半径缩放和栅格化
   行为测试通过。
-- 规划器级 A/B 实验包：41 项测试通过，其中 38 项地图坐标、动态栅格转换、
-  路径指标、重复试验统计、论文 manifest 和结果验收行为测试
+- 规划器级 A/B 实验包：49 项测试通过，其中 46 项地图坐标、动态栅格转换、
+  路径指标、重复试验统计、论文 manifest、结果验收和成果导出行为测试
   通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
 - 默认模板路线的两次离线规划得到完全相同的路径几何：基线穿越语义区约
   7.50 m，启用语义层后穿越为 0，路径增加约 3.26 m，语义边界最小间距约
@@ -135,6 +135,11 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 干净提交 `21f02ef` 的 15 次风险因素分离 Pilot 已全部通过验收，0 失败、
   0 缺失、0 无效，五组路径各自完全重复。风险值 65 允许软穿越，85/100
   完全绕行；固定风险值 100 时，半径增大对应路径长度逐级增加。
+- 新增论文成果导出器，将可比场景摘要生成 CSV、SVG 四指标图和 JSON 审计
+  manifest。导出前重新核对干净 revision、固定实验输入、路径重复性以及每份
+  原始 trial 的 SHA-256。已用 `ce72d97` 的 6 组多场景 Pilot 离线验证：CSV
+  6 行、SVG XML 可解析，成果文件哈希均与 manifest 一致；临时成果位于
+  `/tmp/semantic_paper_exports/`，不提交 Pilot 数据到仓库。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。
