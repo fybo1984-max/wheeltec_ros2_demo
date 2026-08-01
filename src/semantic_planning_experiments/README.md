@@ -182,8 +182,13 @@ actually vary is also rejected. The CSV contains baseline, semantic, and
 paired `semantic_minus_baseline` mean and population standard deviation for
 path length, risk crossing, minimum clearance, and planning time. Paired
 deltas are rebuilt from the original trial reports, not subtracted from
-rounded table values. The SVG displays semantic-condition values. The
-manifest preserves declared factor values and every input/output digest.
+rounded table values. Each paired metric also includes sample standard
+deviation, a 95% Student-t confidence interval, Cohen's dz, and a two-sided
+paired sign-flip permutation p-value. Up to 16 pairs use exact enumeration;
+larger samples use 100,000 fixed-seed Monte Carlo permutations. Zero-variance
+paired effects keep Cohen's dz empty instead of reporting infinity. The SVG
+displays semantic-condition values. The manifest preserves the full
+statistics, declared factor values, and every input/output digest.
 
 Validate and expand the paper pilot manifest without executing any launch:
 

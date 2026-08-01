@@ -152,6 +152,15 @@ def test_export_writes_csv_svg_and_audit_manifest(tmp_path: Path):
     assert rows[0]['baseline_path_length_m_mean'] == '8'
     assert rows[0]['semantic_path_length_m_mean'] == '10'
     assert rows[0]['semantic_minus_baseline_path_length_m_mean'] == '2'
+    assert rows[0][
+        'semantic_minus_baseline_path_length_m_ci95_lower'
+    ] == ''
+    assert rows[0][
+        'semantic_minus_baseline_path_length_m_cohen_dz'
+    ] == ''
+    assert rows[0][
+        'semantic_minus_baseline_path_length_m_permutation_p_value'
+    ] == '1'
     assert 'Far &amp; fragile' in svg_text
     assert manifest['code_revision'] == 'abc123'
     assert manifest['outputs']['csv']['sha256'] == _sha256(outputs['csv'])

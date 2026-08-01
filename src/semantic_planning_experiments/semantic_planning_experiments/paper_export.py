@@ -24,10 +24,12 @@ import json
 import math
 import os
 from pathlib import Path
-import statistics
 import sys
 
 from semantic_planning_experiments.metrics import sha256_file
+from semantic_planning_experiments.paired_statistics import (
+    summarize_paired_differences,
+)
 
 
 _METRICS = (
@@ -182,11 +184,9 @@ def _paired_delta(summary: dict, name: str, summary_path: Path) -> dict:
         values.append(semantic - baseline)
     if len(values) != summary['trial_count']:
         raise ValueError(f'paired metric count mismatch: {summary_path}')
-    return {
-        'count': len(values),
-        'mean': statistics.fmean(values),
-        'population_stddev': statistics.pstdev(values),
-    }
+    result = summarize_paired_differences(values)
+    result['paired_differences'] = values
+    return result
 
 
 def _scenario_metrics(summary: dict, path: Path) -> dict:
@@ -286,6 +286,10 @@ def prepare_export(
     }
 
 
+def _format_optional(value) -> str:
+    return '' if value is None else format(float(value), '.9g')
+
+
 def render_csv(dataset: dict) -> str:
     """Render the normalized dataset as deterministic CSV text."""
     stream = io.StringIO(newline='')
@@ -300,6 +304,14 @@ def render_csv(dataset: dict) -> str:
                 f'{condition}_{name}_mean',
                 f'{condition}_{name}_population_stddev',
             ))
+        delta_prefix = f'semantic_minus_baseline_{name}'
+        fieldnames.extend((
+            f'{delta_prefix}_sample_stddev',
+            f'{delta_prefix}_ci95_lower',
+            f'{delta_prefix}_ci95_upper',
+            f'{delta_prefix}_cohen_dz',
+            f'{delta_prefix}_permutation_p_value',
+        ))
     writer = csv.DictWriter(stream, fieldnames=fieldnames, lineterminator='\n')
     writer.writeheader()
     for scenario in dataset['scenarios']:
@@ -321,6 +333,27 @@ def render_csv(dataset: dict) -> str:
                 row[
                     f'{condition}_{name}_population_stddev'
                 ] = format(metric['population_stddev'], '.9g')
+            delta = scenario['metrics'][name][
+                'semantic_minus_baseline'
+            ]
+            delta_prefix = f'semantic_minus_baseline_{name}'
+            interval = delta['confidence_interval_95']
+            row[f'{delta_prefix}_sample_stddev'] = _format_optional(
+                delta['sample_stddev']
+            )
+            row[f'{delta_prefix}_ci95_lower'] = _format_optional(
+                interval['lower'] if interval is not None else None
+            )
+            row[f'{delta_prefix}_ci95_upper'] = _format_optional(
+                interval['upper'] if interval is not None else None
+            )
+            row[f'{delta_prefix}_cohen_dz'] = _format_optional(
+                delta['cohen_dz']
+            )
+            permutation = delta['two_sided_paired_permutation_test']
+            row[f'{delta_prefix}_permutation_p_value'] = format(
+                permutation['p_value'], '.9g'
+            )
         writer.writerow(row)
     return stream.getvalue()
 
