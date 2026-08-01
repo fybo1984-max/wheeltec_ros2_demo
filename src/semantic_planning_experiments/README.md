@@ -242,6 +242,26 @@ and retain available artifact hashes. Existing artifacts with a still-planned
 status are invalid rather than silently ignored. The command returns nonzero
 until every planned unit passes.
 
+Before collecting one unit, generate a non-executing preflight plan:
+
+```bash
+ros2 run semantic_planning_experiments semantic_collection_preflight \
+  --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
+  --archive-index /tmp/semantic_recorded_rgbd_archive_v1/index.yaml \
+  --unit-id person_near_001 \
+  --minimum-free-gib 5 \
+  --output /tmp/semantic_recorded_rgbd_archive_v1/preflight/person_near_001.json
+```
+
+The preflight re-verifies the protocol lock and archive allocation, requires
+the unit to remain `planned`, rejects existing bag or metadata artifacts,
+checks free storage, and rejects every required topic whose path contains a
+`cmd_vel` component. It writes the exact `ros2 bag record` argument array and
+an intentionally incomplete metadata draft, but does not start ROS, a camera,
+a detector, Rosbag, a controller, or the base. A separate operator notice and
+explicit authorization are still required before executing any generated
+command.
+
 Validate and expand the paper pilot manifest without executing any launch:
 
 ```bash

@@ -138,6 +138,13 @@ semantic 及逐 trial 配对的 `semantic_minus_baseline`，覆盖路径长度�
 静默算作缺失。只有 12/12 `passed` 时 `analysis_ready=true`，否则命令写出审计
 报告后返回非零状态。
 
+每个单元采集前必须运行 `semantic_collection_preflight`。预检重新验证冻结锁和
+归档索引，要求目标单元仍为 `planned`、目标 bag 和元数据路径不存在、归档磁盘
+空间达到预设阈值，并拒绝任何路径分量以 `cmd_vel` 开头的必需 topic。其输出只
+包含待人工确认的 `ros2 bag record` 参数数组和空白元数据草稿；工具本身不启动
+ROS、相机、检测器、Rosbag、controller 或底盘。预检通过不等于授权采集，启动
+物理相机和执行录制命令前仍须另行通知并获得现场操作人员确认。
+
 ## Pilot v1 场景
 
 | 场景 | RQ | 重复数 | 策略 | 主要验收条件 |

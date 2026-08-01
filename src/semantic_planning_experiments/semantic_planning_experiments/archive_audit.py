@@ -261,6 +261,24 @@ def _validate_index(index: dict, index_path: Path, lock: dict) -> dict:
     }
 
 
+def load_validated_archive_index(
+    index_path: Path,
+    workspace_root: Path,
+) -> tuple[dict, dict]:
+    """Load an archive index after verifying its frozen protocol binding."""
+    workspace_root = workspace_root.expanduser().resolve()
+    index_path = index_path.expanduser().resolve()
+    _outside_workspace(index_path, workspace_root)
+    index = _load_mapping(index_path, 'archive index')
+    protocol_reference = index.get('protocol')
+    if not isinstance(protocol_reference, dict):
+        raise ValueError('archive index protocol reference is missing')
+    lock_path = Path(str(protocol_reference.get('lock_path', '')))
+    verify_protocol_lock(lock_path, workspace_root)
+    lock = _load_mapping(lock_path, 'protocol lock')
+    return _validate_index(index, index_path, lock), lock
+
+
 def _directory_inventory(directory: Path) -> dict:
     if not directory.is_dir():
         raise ValueError('Rosbag path is not a directory')
@@ -441,17 +459,11 @@ def audit_archive_index(
     workspace_root: Path,
 ) -> dict:
     """Audit all planned archive units without modifying archive contents."""
-    workspace_root = workspace_root.expanduser().resolve()
     index_path = index_path.expanduser().resolve()
-    _outside_workspace(index_path, workspace_root)
-    index = _load_mapping(index_path, 'archive index')
-    protocol_reference = index.get('protocol')
-    if not isinstance(protocol_reference, dict):
-        raise ValueError('archive index protocol reference is missing')
-    lock_path = Path(str(protocol_reference.get('lock_path', '')))
-    verify_protocol_lock(lock_path, workspace_root)
-    lock = _load_mapping(lock_path, 'protocol lock')
-    validated = _validate_index(index, index_path, lock)
+    validated, lock = load_validated_archive_index(
+        index_path,
+        workspace_root,
+    )
 
     results = []
     for unit in validated['units']:
