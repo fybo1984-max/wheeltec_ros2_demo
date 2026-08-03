@@ -145,6 +145,14 @@ semantic 及逐 trial 配对的 `semantic_minus_baseline`，覆盖路径长度�
 ROS、相机、检测器、Rosbag、controller 或底盘。预检通过不等于授权采集，启动
 物理相机和执行录制命令前仍须另行通知并获得现场操作人员确认。
 
+相机与检测器由现场人员确认启动后、Rosbag 开始前，必须运行
+`semantic_live_input_readiness`。该工具只观察已有 topic，要求彩色图、对齐深度、
+CameraInfo 和置信度达标的 `person` 检测均达到最少消息数；同时检查 16UC1/32FC1
+深度编码、有效内参、配准后的尺寸与 frame 一致性、每个检测帧相对最近深度帧的
+最坏时间差不超过 0.15 s，以及检测 frame 到 `map` 的 TF 可用。只有输出报告中
+`experiment_input_ready=true` 才能开始该单元录制；失败项必须保留，不得仅凭图像
+目视正常跳过。
+
 录制停止后使用 `semantic_archive_register` 登记单元，禁止手工将索引状态改为
 `collected`。登记器在任何写入前验证 bag 递归清单、SQLite `quick_check`、全部
 声明存储文件、必需 topic 与数据库实际消息数、元数据 SHA-256、有限地图坐标、

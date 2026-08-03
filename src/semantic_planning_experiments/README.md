@@ -263,6 +263,31 @@ a detector, Rosbag, a controller, or the base. A separate operator notice and
 explicit authorization are still required before executing any generated
 command.
 
+After the approved camera and detector are running, but before recording a
+unit, validate the live input contract:
+
+```bash
+ros2 run semantic_planning_experiments semantic_live_input_readiness \
+  --ros-args \
+  -p output_path:=/tmp/semantic_live_input_readiness.json
+```
+
+This observer does not start a camera, detector, recorder, controller, or
+robot. It requires sufficient color, aligned-depth, CameraInfo, and `person`
+detection messages; supported depth encoding and valid intrinsics; matching
+registered dimensions and frames; worst-case nearest detection/depth skew at
+or below 0.15 seconds; and a transform from the detection frame to `map`.
+Every condition and observed value is written to JSON. A failed report exits
+nonzero.
+
+Exercise the same contract without hardware:
+
+```bash
+ros2 launch semantic_planning_experiments \
+  synthetic_input_readiness.launch.py \
+  output_path:=/tmp/semantic_input_readiness_synthetic.json
+```
+
 After Rosbag has stopped and the metadata draft has been completed as a
 standalone JSON file, register the unit without editing the ledger manually:
 

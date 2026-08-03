@@ -148,6 +148,18 @@ idle 后下一发布周期清为 0。
 当前 Astra 相机启动参数 `depth_registration` 默认仍为 `false`；开启相机属于
 硬件实验步骤，执行前必须通知现场人员并检查图像、深度尺寸和 `frame_id`。
 
+真实数据录制前使用输入预检器检查这些条件：
+
+```bash
+ros2 run semantic_planning_experiments semantic_live_input_readiness \
+  --ros-args \
+  -p output_path:=/tmp/semantic_live_input_readiness.json
+```
+
+它只订阅已经运行的话题，不会启动相机或导航。报告必须满足
+`experiment_input_ready=true`，其中包括人员检测、对齐尺寸与 frame、逐检测帧
+最坏时间差不超过 0.15 s，以及相机检测 frame 到 `map` 的 TF 可用。
+
 ## 启用方式（会启动导航，可能使小车运动）
 
 确认现场安全后：

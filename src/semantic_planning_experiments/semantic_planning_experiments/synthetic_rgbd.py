@@ -36,6 +36,7 @@ class SyntheticRGBDSource(Node):
     def __init__(self) -> None:
         super().__init__('synthetic_rgbd_source')
         self.declare_parameter('camera_frame', 'synthetic_camera_optical_frame')
+        self.declare_parameter('color_topic', '/camera/color/image_raw')
         self.declare_parameter('camera_info_topic', '/camera/color/camera_info')
         self.declare_parameter('depth_topic', '/camera/depth/image_raw')
         self.declare_parameter('detections_topic', '/detections')
@@ -123,6 +124,11 @@ class SyntheticRGBDSource(Node):
             self.get_parameter('camera_info_topic').value,
             qos_profile_sensor_data,
         )
+        self._color_publisher = self.create_publisher(
+            Image,
+            self.get_parameter('color_topic').value,
+            qos_profile_sensor_data,
+        )
         self._depth_publisher = self.create_publisher(
             Image,
             self.get_parameter('depth_topic').value,
@@ -134,6 +140,7 @@ class SyntheticRGBDSource(Node):
             qos_profile_sensor_data,
         )
         self._depth_bytes = self._scene.depth_bytes()
+        self._color_bytes = bytes(self._width * self._height * 3)
         self.create_timer(1.0 / publish_rate, self._publish)
 
     def _publish(self) -> None:
@@ -155,6 +162,16 @@ class SyntheticRGBDSource(Node):
             0.0, self._focal, self._height * 0.5,
             0.0, 0.0, 1.0,
         ]
+
+        color = Image()
+        color.header.stamp = stamp
+        color.header.frame_id = self._camera_frame
+        color.width = self._width
+        color.height = self._height
+        color.encoding = 'bgr8'
+        color.is_bigendian = 0
+        color.step = self._width * 3
+        color.data = self._color_bytes
 
         depth = Image()
         depth.header.stamp = stamp
@@ -207,6 +224,7 @@ class SyntheticRGBDSource(Node):
             )
             self._reported_stop = True
 
+        self._color_publisher.publish(color)
         self._camera_info_publisher.publish(camera_info)
         self._depth_publisher.publish(depth)
         self._detections_publisher.publish(detections)
