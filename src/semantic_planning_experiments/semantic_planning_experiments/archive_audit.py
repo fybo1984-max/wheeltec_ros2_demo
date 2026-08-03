@@ -22,7 +22,9 @@ import math
 import os
 from pathlib import Path
 import re
+import sqlite3
 import sys
+from urllib.parse import quote
 
 import yaml
 
@@ -307,7 +309,41 @@ def _directory_inventory(directory: Path) -> dict:
     }
 
 
-def _rosbag_topics(bag_path: Path) -> dict:
+def _sqlite_topic_counts(storage_paths: list[Path]) -> dict[str, int]:
+    counts = {}
+    for storage_path in storage_paths:
+        if storage_path.suffix.lower() != '.db3':
+            raise ValueError('sqlite3 Rosbag storage file must end in .db3')
+        uri = f'file:{quote(str(storage_path), safe="/")}?mode=ro'
+        try:
+            connection = sqlite3.connect(uri, uri=True)
+            try:
+                connection.execute('PRAGMA query_only = ON')
+                integrity = connection.execute(
+                    'PRAGMA quick_check'
+                ).fetchall()
+                if integrity != [('ok',)]:
+                    raise ValueError('Rosbag SQLite quick_check failed')
+                rows = connection.execute(
+                    'SELECT topics.name, COUNT(messages.id) '
+                    'FROM topics LEFT JOIN messages '
+                    'ON messages.topic_id = topics.id '
+                    'GROUP BY topics.id, topics.name'
+                ).fetchall()
+            finally:
+                connection.close()
+        except sqlite3.Error as error:
+            raise ValueError(
+                f'Rosbag SQLite storage is invalid: {storage_path.name}'
+            ) from error
+        for name, message_count in rows:
+            if not isinstance(name, str) or not name:
+                raise ValueError('Rosbag SQLite topic name is invalid')
+            counts[name] = counts.get(name, 0) + int(message_count)
+    return counts
+
+
+def _rosbag_topics(bag_path: Path, required_topics: list[str]) -> dict:
     metadata_path = bag_path / 'metadata.yaml'
     if not metadata_path.is_file():
         raise ValueError('Rosbag metadata.yaml is missing')
@@ -316,6 +352,7 @@ def _rosbag_topics(bag_path: Path) -> dict:
         information = metadata['rosbag2_bagfile_information']
         topics_raw = information['topics_with_message_count']
         relative_files = information['relative_file_paths']
+        storage_identifier = information['storage_identifier']
     except (KeyError, TypeError) as error:
         raise ValueError(
             'Rosbag metadata.yaml structure is invalid'
@@ -334,7 +371,18 @@ def _rosbag_topics(bag_path: Path) -> dict:
             raise ValueError('Rosbag topic metadata is invalid') from error
         if not isinstance(name, str) or not name or message_count < 0:
             raise ValueError('Rosbag topic metadata is invalid')
+        if name in topics:
+            raise ValueError(f'duplicate Rosbag topic metadata: {name}')
         topics[name] = message_count
+    missing_topics = [
+        topic for topic in required_topics
+        if topics.get(topic, 0) < 1
+    ]
+    if missing_topics:
+        raise ValueError(
+            f'Rosbag required topics are missing: {missing_topics}'
+        )
+    storage_paths = []
     for relative in relative_files:
         _, resolved = _relative_artifact_path(
             relative,
@@ -343,6 +391,22 @@ def _rosbag_topics(bag_path: Path) -> dict:
         )
         if not resolved.is_file():
             raise ValueError(f'Rosbag storage file is missing: {relative}')
+        storage_paths.append(resolved)
+    if len(set(storage_paths)) != len(storage_paths):
+        raise ValueError('Rosbag storage file list contains duplicates')
+    if storage_identifier != 'sqlite3':
+        raise ValueError(
+            f'unsupported Rosbag storage identifier: {storage_identifier}'
+        )
+    declared_storage = set(storage_paths)
+    discovered_storage = set(bag_path.glob('*.db3'))
+    if declared_storage != discovered_storage:
+        raise ValueError('Rosbag SQLite storage file list is incomplete')
+    actual_topics = _sqlite_topic_counts(storage_paths)
+    if actual_topics != topics:
+        raise ValueError(
+            'Rosbag metadata topic counts disagree with SQLite storage'
+        )
     return topics
 
 
@@ -425,15 +489,7 @@ def _audit_collected_unit(
     required_metadata,
 ) -> dict:
     inventory = _directory_inventory(unit['bag_path'])
-    topics = _rosbag_topics(unit['bag_path'])
-    missing_topics = [
-        topic for topic in required_topics
-        if topics.get(topic, 0) < 1
-    ]
-    if missing_topics:
-        raise ValueError(
-            f'Rosbag required topics are missing: {missing_topics}'
-        )
+    topics = _rosbag_topics(unit['bag_path'], required_topics)
     metadata = _validate_unit_metadata(
         unit['metadata_path'],
         required_metadata,

@@ -275,12 +275,15 @@ ros2 run semantic_planning_experiments semantic_archive_register \
 ```
 
 Registration accepts only a still-`planned` unit. Before writing anything, it
-checks the immutable bag inventory, Rosbag storage references, required topics
-and positive message counts, metadata SHA-256 values, finite map coordinates,
-UTC timestamps, and recording time order. It preserves the source metadata and
-bag, refuses to overwrite the archived metadata or receipt, atomically changes
-the ledger status to `collected`, and records before/after ledger hashes in the
-receipt. The tool does not run Rosbag, ROS nodes, a controller, or hardware.
+checks the immutable bag inventory, SQLite `quick_check`, declared storage
+files, required topics and database-backed message counts, metadata SHA-256
+values, finite map coordinates, UTC timestamps, and recording time order. It
+preserves the source metadata and bag, refuses to overwrite the archived
+metadata or receipt, atomically changes the ledger status to `collected`, and
+records before/after ledger hashes in the receipt. Recorded RGB-D v1 currently
+requires Humble's default `sqlite3` storage; an unsupported storage identifier
+fails visibly. The tool does not run Rosbag, ROS nodes, a controller, or
+hardware.
 
 Validate and expand the paper pilot manifest without executing any launch:
 

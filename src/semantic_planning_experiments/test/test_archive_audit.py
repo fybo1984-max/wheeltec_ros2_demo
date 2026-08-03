@@ -14,6 +14,7 @@
 
 import json
 from pathlib import Path
+import sqlite3
 import subprocess
 
 import pytest
@@ -146,7 +147,30 @@ def _valid_unit_artifacts(index_path: Path, unit_id: str) -> None:
     root = index_path.parent
     bag = root / 'bags' / unit_id
     bag.mkdir(parents=True)
-    (bag / 'recording_0.db3').write_bytes(b'rosbag data')
+    storage_path = bag / 'recording_0.db3'
+    connection = sqlite3.connect(storage_path)
+    connection.execute(
+        'CREATE TABLE topics('
+        'id INTEGER PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL)'
+    )
+    connection.execute(
+        'CREATE TABLE messages('
+        'id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL, '
+        'timestamp INTEGER NOT NULL, data BLOB NOT NULL)'
+    )
+    for topic_id, topic in enumerate(_TOPICS, start=1):
+        connection.execute(
+            'INSERT INTO topics(id, name, type) VALUES (?, ?, ?)',
+            (topic_id, topic, 'test/msg/Type'),
+        )
+        for message_index in range(5):
+            connection.execute(
+                'INSERT INTO messages(topic_id, timestamp, data) '
+                'VALUES (?, ?, ?)',
+                (topic_id, message_index, b'test'),
+            )
+    connection.commit()
+    connection.close()
     topics = [
         {
             'topic_metadata': {'name': topic, 'type': 'test/msg/Type'},
@@ -157,6 +181,7 @@ def _valid_unit_artifacts(index_path: Path, unit_id: str) -> None:
     (bag / 'metadata.yaml').write_text(
         yaml.safe_dump({
             'rosbag2_bagfile_information': {
+                'storage_identifier': 'sqlite3',
                 'topics_with_message_count': topics,
                 'relative_file_paths': ['recording_0.db3'],
             },
@@ -262,6 +287,20 @@ def test_missing_required_topic_marks_collected_unit_invalid(tmp_path: Path):
     result = audit['units'][0]
     assert result['audit_status'] == 'invalid'
     assert 'required topics are missing' in result['reason']
+
+
+def test_non_sqlite_storage_marks_collected_unit_invalid(tmp_path: Path):
+    repo, _, index_path = _archive(tmp_path)
+    _valid_unit_artifacts(index_path, 'near_001')
+    storage_path = index_path.parent / 'bags/near_001/recording_0.db3'
+    storage_path.write_bytes(b'not a SQLite database')
+    _mark_collected(index_path, ['near_001'])
+
+    audit = audit_archive_index(index_path, repo)
+
+    result = audit['units'][0]
+    assert result['audit_status'] == 'invalid'
+    assert 'SQLite storage is invalid' in result['reason']
 
 
 def test_missing_required_metadata_marks_unit_invalid(tmp_path: Path):

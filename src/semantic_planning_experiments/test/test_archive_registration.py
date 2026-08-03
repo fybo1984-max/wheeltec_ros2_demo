@@ -14,6 +14,7 @@
 
 import json
 from pathlib import Path
+import sqlite3
 
 import pytest
 import yaml
@@ -59,7 +60,30 @@ def _inputs(tmp_path: Path, monkeypatch) -> dict:
     archive.mkdir()
     bag = archive / 'bags/near_001'
     bag.mkdir(parents=True)
-    (bag / 'recording_0.db3').write_bytes(b'unchanged rosbag payload')
+    storage_path = bag / 'recording_0.db3'
+    connection = sqlite3.connect(storage_path)
+    connection.execute(
+        'CREATE TABLE topics('
+        'id INTEGER PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL)'
+    )
+    connection.execute(
+        'CREATE TABLE messages('
+        'id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL, '
+        'timestamp INTEGER NOT NULL, data BLOB NOT NULL)'
+    )
+    for topic_id, topic in enumerate(_TOPICS, start=1):
+        connection.execute(
+            'INSERT INTO topics(id, name, type) VALUES (?, ?, ?)',
+            (topic_id, topic, 'test/msg/Type'),
+        )
+        for message_index in range(5):
+            connection.execute(
+                'INSERT INTO messages(topic_id, timestamp, data) '
+                'VALUES (?, ?, ?)',
+                (topic_id, message_index, b'test'),
+            )
+    connection.commit()
+    connection.close()
     topic_metadata = [
         {
             'topic_metadata': {
@@ -73,6 +97,7 @@ def _inputs(tmp_path: Path, monkeypatch) -> dict:
     (bag / 'metadata.yaml').write_text(
         yaml.safe_dump({
             'rosbag2_bagfile_information': {
+                'storage_identifier': 'sqlite3',
                 'topics_with_message_count': topic_metadata,
                 'relative_file_paths': ['recording_0.db3'],
             },
