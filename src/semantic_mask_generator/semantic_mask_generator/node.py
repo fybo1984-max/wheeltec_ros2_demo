@@ -18,7 +18,9 @@ import copy
 import math
 import time
 
+from aruco_msgs.msg import MarkerArray
 from nav_msgs.msg import OccupancyGrid
+import numpy as np
 import rclpy
 from rclpy.duration import Duration
 from rclpy.node import Node
@@ -30,17 +32,20 @@ from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
+from std_msgs.msg import Bool
 from tf2_ros import Buffer
 from tf2_ros import TransformException
 from tf2_ros import TransformListener
 from vision_msgs.msg import Detection2DArray
 
+from semantic_mask_generator.core import build_marker_profile_map
 from semantic_mask_generator.core import decode_depth_image
 from semantic_mask_generator.core import GridSpec
 from semantic_mask_generator.core import median_depth
 from semantic_mask_generator.core import ObservationStore
 from semantic_mask_generator.core import project_pixel
 from semantic_mask_generator.core import rasterize_observations
+from semantic_mask_generator.core import rasterize_polygon
 from semantic_mask_generator.core import RiskProfile
 from semantic_mask_generator.core import scale_risk_profile
 from semantic_mask_generator.core import transform_point
@@ -106,6 +111,20 @@ class SemanticMaskNode(Node):
             self._detections_callback,
             qos_profile_sensor_data,
         )
+        if self._marker_enabled:
+            self.create_subscription(
+                MarkerArray,
+                self._marker_topic,
+                self._marker_callback,
+                qos_profile_sensor_data,
+            )
+        if self._loading_zone_enabled:
+            self.create_subscription(
+                Bool,
+                self._loading_zone_active_topic,
+                self._loading_zone_callback,
+                10,
+            )
         self._publisher = self.create_publisher(
             OccupancyGrid,
             self._mask_topic,
@@ -152,6 +171,25 @@ class SemanticMaskNode(Node):
         self.declare_parameter('risk_class_radii_m', [1.2])
         self.declare_parameter('risk_value_scale', 1.0)
         self.declare_parameter('risk_radius_scale', 1.0)
+        self.declare_parameter('marker_enabled', False)
+        self.declare_parameter(
+            'marker_topic',
+            '/aruco_marker_publisher/markers',
+        )
+        self.declare_parameter('marker_ids', [101])
+        self.declare_parameter('marker_labels', ['fragile_goods'])
+        self.declare_parameter('marker_minimum_confidence', 0.5)
+        self.declare_parameter('loading_zone_enabled', False)
+        self.declare_parameter(
+            'loading_zone_active_topic',
+            '/semantic/loading_zone_active',
+        )
+        self.declare_parameter('loading_zone_initial_active', False)
+        self.declare_parameter('loading_zone_risk_value', 85)
+        self.declare_parameter(
+            'loading_zone_vertices_m',
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        )
 
     def _read_parameters(self) -> None:
         def value(name):
@@ -194,8 +232,50 @@ class SemanticMaskNode(Node):
             )
             self._profiles[str(name).casefold()] = profile
 
+        self._marker_enabled = bool(value('marker_enabled'))
+        self._marker_topic = str(value('marker_topic'))
+        self._marker_minimum_confidence = float(
+            value('marker_minimum_confidence')
+        )
+        if self._marker_enabled:
+            self._marker_profiles = build_marker_profile_map(
+                list(value('marker_ids')),
+                list(value('marker_labels')),
+                self._profiles,
+            )
+        else:
+            self._marker_profiles = {}
+        self._loading_zone_enabled = bool(value('loading_zone_enabled'))
+        self._loading_zone_active_topic = str(
+            value('loading_zone_active_topic')
+        )
+        self._loading_zone_active = bool(value('loading_zone_initial_active'))
+        self._loading_zone_risk_value = int(value('loading_zone_risk_value'))
+        flat_vertices = [
+            float(item) for item in value('loading_zone_vertices_m')
+        ]
+        if self._loading_zone_enabled and (
+            len(flat_vertices) < 6 or len(flat_vertices) % 2 != 0
+        ):
+            raise ValueError(
+                'loading_zone_vertices_m must contain at least three x/y pairs'
+            )
+        self._loading_zone_vertices = list(
+            zip(flat_vertices[0::2], flat_vertices[1::2])
+        )
+        if not 1 <= self._loading_zone_risk_value <= 100:
+            raise ValueError('loading_zone_risk_value must be in [1, 100]')
+        if self._loading_zone_enabled:
+            rasterize_polygon(
+                GridSpec(1, 1, 1.0, 0.0, 0.0),
+                self._loading_zone_vertices,
+                self._loading_zone_risk_value,
+            )
+
         if not 0.0 <= self._minimum_confidence <= 1.0:
             raise ValueError('minimum_confidence must be in [0, 1]')
+        if not 0.0 <= self._marker_minimum_confidence <= 1.0:
+            raise ValueError('marker_minimum_confidence must be in [0, 1]')
         if (
             self._minimum_depth_m <= 0.0
             or self._maximum_depth_m <= self._minimum_depth_m
@@ -393,6 +473,76 @@ class SemanticMaskNode(Node):
                 candidates.append((label, score, profile))
         return max(candidates, key=lambda item: item[1], default=None)
 
+    def _marker_callback(self, message: MarkerArray) -> None:
+        if not self._enabled or not self._marker_enabled:
+            return
+        now = self.get_clock().now().nanoseconds * 1e-9
+        for marker in message.markers:
+            candidate = self._marker_profiles.get(int(marker.id))
+            confidence = float(marker.confidence)
+            if (
+                candidate is None
+                or not math.isfinite(confidence)
+                or confidence < self._marker_minimum_confidence
+            ):
+                continue
+            label, profile = candidate
+            source_frame = marker.header.frame_id or message.header.frame_id
+            if not source_frame:
+                self._warn_throttled(
+                    'marker_frame',
+                    'Marker frame_id is empty.',
+                )
+                continue
+            position = marker.pose.pose.position
+            marker_point = (position.x, position.y, position.z)
+            if not all(math.isfinite(value) for value in marker_point):
+                continue
+
+            if source_frame == self._target_frame:
+                map_point = marker_point
+            else:
+                stamp = marker.header.stamp
+                if stamp.sec == 0 and stamp.nanosec == 0:
+                    stamp = message.header.stamp
+                try:
+                    transform = self._tf_buffer.lookup_transform(
+                        self._target_frame,
+                        source_frame,
+                        Time.from_msg(stamp),
+                        timeout=Duration(seconds=self._tf_timeout),
+                    )
+                except TransformException as error:
+                    self._warn_throttled(
+                        'marker_tf',
+                        f'Cannot transform semantic marker: {error}',
+                    )
+                    continue
+                translation = transform.transform.translation
+                rotation = transform.transform.rotation
+                map_point = transform_point(
+                    marker_point,
+                    (translation.x, translation.y, translation.z),
+                    (rotation.x, rotation.y, rotation.z, rotation.w),
+                )
+
+            self._store.add(
+                label,
+                map_point[0],
+                map_point[1],
+                profile,
+                now,
+                self._hold_sec,
+                self._decay_sec,
+            )
+            self.get_logger().debug(
+                f'Accepted marker {marker.id} as {label} '
+                f'at ({map_point[0]:.2f}, {map_point[1]:.2f}).'
+            )
+
+    def _loading_zone_callback(self, message: Bool) -> None:
+        self._loading_zone_active = bool(message.data)
+
     def _publish_mask(self) -> None:
         if not self._enabled or self._map_info is None:
             return
@@ -406,6 +556,13 @@ class SemanticMaskNode(Node):
             origin_y=self._map_info.origin.position.y,
         )
         grid = rasterize_observations(spec, observations, now)
+        if self._loading_zone_enabled and self._loading_zone_active:
+            loading_zone = rasterize_polygon(
+                spec,
+                self._loading_zone_vertices,
+                self._loading_zone_risk_value,
+            )
+            grid = np.maximum(grid, loading_zone)
         message = OccupancyGrid()
         message.header.stamp = self.get_clock().now().to_msg()
         message.header.frame_id = self._map_frame

@@ -98,10 +98,10 @@ colcon test-result \
 这些命令只编译和运行单元测试，不启动底盘、导航、雷达、相机或麦克风。
 当前插件 10 个 CTest 全部通过；其中 14 个行为测试覆盖模糊成本、固定软代价、
 硬障碍对照、风险强度、语义膨胀、静态/话题输入、插件加载，以及“不清除
-未知区、不降低既有致命障碍”的合并边界。动态生成包 13 项测试通过，其中
-10 项行为测试覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减、风险
-半径缩放和地图栅格化。
-规划器实验包 41 项测试通过，其中 38 项行为测试覆盖 Nav2 PGM 坐标转换、
+未知区、不降低既有致命障碍”的合并边界。动态生成包 20 项测试通过，其中
+17 项行为测试覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减、风险
+半径缩放、标记 ID 档案映射和地图栅格化。
+规划器实验包 105 项测试通过，其中 102 项行为测试覆盖 Nav2 PGM 坐标转换、
 OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、语义边界间距、
 实际风险值摘要、指标差值、输入哈希、可比较性校验、统计汇总、路径重复性检测
 和论文 manifest 安全展开及逐 trial 结果验收。
@@ -111,15 +111,17 @@ OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、�
 `semantic_mask_generator` 的输入和输出为：
 
 - 输入：`/detections`（`vision_msgs/Detection2DArray`）；
+- 可选输入：`/aruco_marker_publisher/markers`（易碎品等标识位姿）；
+- 可选输入：`/semantic/loading_zone_active`（装卸区作业状态真值）；
 - 输入：配准到彩色图的深度图和 `/camera/color/camera_info`；
 - 输入：`/map` 和检测相机到 `map` 的 TF；
 - 输出：`/semantic_mask`（`nav_msgs/OccupancyGrid`，风险值 `0..100`）。
 
-默认仓储风险档案接受检测器的精确标签 `person`、`forklift`、`pallet` 和
-`fragile_box`，初始风险值/半径分别为 `100/1.2 m`、`95/1.8 m`、
-`65/0.8 m`、`85/1.0 m`。这些是待实验标定的软代价参数，不是识别能力声明
-或工业安全阈值。标准 COCO 模型通常只有 `person`；其余类别需要自定义仓储
-模型或上游标签适配器，模型权重不进入 Git。
+默认仓储风险档案接受 `person`、`other_vehicle`、`pallet_load`、
+`temporary_cargo` 和 `fragile_goods`，初始风险值/半径分别为 `100/1.2 m`、
+`95/1.8 m`、`65/0.8 m`、`60/0.8 m`、`85/1.0 m`。标准 COCO 模型通常只有
+`person`；其他对象需要仓储检测模型或标签适配器。标记 `101` 默认映射为
+`fragile_goods`，启用后直接使用 ArUco 位姿，不重复执行深度投影。
 
 观测会按空间距离合并，保持 0.8 s 后在 1.2 s 内线性衰减。易碎品货区、固定
 装卸区等持久化区域仍由静态 mask 表达。
@@ -132,6 +134,15 @@ ros2 launch semantic_mask_generator dynamic_semantic_mask.launch.py \
   enabled:=true \
   depth_is_registered:=true
 ```
+
+仅验证标记输入时可使用 `marker_enabled:=true`；默认标记 `101` 映射到
+`fragile_goods`。合成 `MarkerArray` 端到端验证在地图坐标 `(5.0, 5.0) m`
+生成了 309 个风险值为 85 的栅格，质心约为 `(5.042, 5.042) m`。
+
+装卸区使用地图坐标多边形和 `active/idle` 状态分离表示：Pilot 阶段先由人工发布
+作业状态真值，验证 costmap 因果效果；人员和托盘联合识别留到感知阶段接入。
+合成 `2 m × 2 m` 装卸区在 active 时生成 400 个风险值为 85 的栅格，切换为
+idle 后下一发布周期清为 0。
 
 这条命令只启动 mask 生成节点，不会自行启动相机、YOLO、Nav2 或底盘。
 当前 Astra 相机启动参数 `depth_registration` 默认仍为 `false`；开启相机属于
@@ -377,9 +388,10 @@ trial 通过才返回成功，缺失、失败、dirty revision 和不安全报�
 1.1 cm，并触发 16.2976 m 的不同路径。该结果支持“安全指标保持、路径拓扑
 对深度噪声敏感”，不支持笼统的完全路径稳定结论。
 
-仓储对象类别 `paper_object_class_manifest.yaml` 生成 `person`、`forklift`、
-`pallet`、`fragile_box` 各 3 次、共 12 个计划 trial（ROS domain
-160–171）。它验证检测后的风险档案和路径响应，不测量真实检测精度：
+当前仓储对象类别 `paper_object_class_manifest.yaml` 生成 `person`、
+`other_vehicle`、`pallet_load`、`temporary_cargo`、`fragile_goods` 各 3 次，
+共 15 个计划 trial（ROS domain 160–174）。它验证检测或标记适配后的风险档案
+和路径响应，不测量真实识别精度：
 
 ```bash
 ros2 run semantic_planning_experiments semantic_experiment_plan \
@@ -387,7 +399,7 @@ ros2 run semantic_planning_experiments semantic_experiment_plan \
   --output /tmp/semantic_paper_object_class_plan.json
 ```
 
-干净提交 `b9e1611` 的 12 次对象类别 Pilot 已全部通过验收，四类各自的路径
+旧版干净提交 `b9e1611` 的 12 次对象类别 Pilot 已全部通过验收，四类各自的路径
 几何完全重复。`person`、`forklift`、`fragile_box` 的语义路径均不穿越风险
 区；低风险 `pallet` 保持软代价，语义路径约 14.0169 m，仍穿越约 1.3469 m。
 该结果验证不同风险档案的下游响应，不代表真实 YOLO 已能识别这些仓储对象。

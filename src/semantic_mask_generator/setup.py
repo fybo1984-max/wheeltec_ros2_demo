@@ -30,7 +30,7 @@ setup(
     zip_safe=True,
     maintainer='WHEELTEC innovation workspace',
     maintainer_email='fybo1984-max@users.noreply.github.com',
-    description='Generate map-aligned semantic risk masks from RGB-D detections.',
+    description='Generate map-aligned semantic risks from RGB-D and markers.',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={

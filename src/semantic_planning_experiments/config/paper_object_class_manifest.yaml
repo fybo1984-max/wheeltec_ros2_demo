@@ -1,10 +1,10 @@
 schema_version: 1
-study_id: semantic_costmap_object_class_pilot_v1
+study_id: semantic_costmap_object_class_pilot_v2
 description: >-
-  Controller-free synthetic class-profile matrix for warehouse semantic risk
-  categories. Synthetic labels validate downstream cost behavior, not detector
-  recognition accuracy.
-output_root: /tmp/semantic_costmap_object_class_pilot_v1
+  Controller-free synthetic class-profile matrix for the current warehouse
+  semantic ontology. Synthetic labels validate downstream cost behavior, not
+  detector or marker recognition accuracy.
+output_root: /tmp/semantic_costmap_object_class_pilot_v2
 domain_id_start: 160
 
 defaults:
@@ -53,43 +53,57 @@ scenarios:
         operator: gt
         value: 0.0
 
-  - id: forklift_profile
+  - id: other_vehicle_profile
     research_question: RQ5
-    hypothesis: The larger forklift profile produces a feasible semantic detour.
+    hypothesis: The other-vehicle profile produces a feasible semantic detour.
     factors:
-      semantic_class: forklift
+      semantic_class: other_vehicle
       risk_value: 95
       risk_radius_m: 1.8
     parameters:
-      synthetic_detection_class_id: forklift
+      synthetic_detection_class_id: other_vehicle
     acceptance:
       - metric: semantic.path_length_m
         operator: gt
         value: 0.0
 
-  - id: pallet_profile
+  - id: pallet_load_profile
     research_question: RQ5
-    hypothesis: The pallet profile produces a feasible risk-aware path.
+    hypothesis: The pallet-load profile produces a feasible risk-aware path.
     factors:
-      semantic_class: pallet
+      semantic_class: pallet_load
       risk_value: 65
       risk_radius_m: 0.8
     parameters:
-      synthetic_detection_class_id: pallet
+      synthetic_detection_class_id: pallet_load
     acceptance:
       - metric: semantic.path_length_m
         operator: gt
         value: 0.0
 
-  - id: fragile_box_profile
+  - id: temporary_cargo_profile
     research_question: RQ5
-    hypothesis: The fragile-box profile produces a feasible semantic detour.
+    hypothesis: The temporary-cargo profile produces a feasible risk-aware path.
     factors:
-      semantic_class: fragile_box
+      semantic_class: temporary_cargo
+      risk_value: 60
+      risk_radius_m: 0.8
+    parameters:
+      synthetic_detection_class_id: temporary_cargo
+    acceptance:
+      - metric: semantic.path_length_m
+        operator: gt
+        value: 0.0
+
+  - id: fragile_goods_profile
+    research_question: RQ5
+    hypothesis: The fragile-goods profile produces a feasible semantic detour.
+    factors:
+      semantic_class: fragile_goods
       risk_value: 85
       risk_radius_m: 1.0
     parameters:
-      synthetic_detection_class_id: fragile_box
+      synthetic_detection_class_id: fragile_goods
     acceptance:
       - metric: semantic.path_length_m
         operator: gt

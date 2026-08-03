@@ -17,6 +17,7 @@
 from dataclasses import dataclass
 import math
 from typing import Iterable
+from typing import Mapping
 
 import numpy as np
 
@@ -165,6 +166,35 @@ class ObservationStore:
             item for item in self._observations if item.expires_at > now
         ]
         return list(self._observations)
+
+
+def build_marker_profile_map(
+    marker_ids: Iterable[int],
+    marker_labels: Iterable[str],
+    profiles: Mapping[str, RiskProfile],
+) -> dict[int, tuple[str, RiskProfile]]:
+    """Resolve configured marker IDs to existing semantic risk profiles."""
+    ids = list(marker_ids)
+    labels = list(marker_labels)
+    if len(ids) != len(labels):
+        raise ValueError('marker IDs and labels must align')
+
+    resolved = {}
+    for marker_id, raw_label in zip(ids, labels):
+        if isinstance(marker_id, bool) or not isinstance(marker_id, int):
+            raise ValueError('marker IDs must be integers')
+        if marker_id < 0 or marker_id > 0xffffffff:
+            raise ValueError('marker IDs must be uint32 values')
+        if marker_id in resolved:
+            raise ValueError(f'duplicate marker ID: {marker_id}')
+        label = str(raw_label).casefold()
+        profile = profiles.get(label)
+        if profile is None:
+            raise ValueError(
+                f'marker label {raw_label!r} has no configured risk profile'
+            )
+        resolved[marker_id] = (label, profile)
+    return resolved
 
 
 def decode_depth_image(
@@ -320,4 +350,79 @@ def rasterize_observations(
         )
         region = grid[min_y:max_y + 1, min_x:max_x + 1]
         region[inside] = np.maximum(region[inside], risk_value)
+    return grid
+
+
+def rasterize_polygon(
+    spec: GridSpec,
+    vertices: Iterable[tuple[float, float]],
+    risk_value: int,
+) -> np.ndarray:
+    """Rasterize one map-frame polygon using grid-cell centers."""
+    spec.validate()
+    points = list(vertices)
+    if len(points) < 3:
+        raise ValueError('polygon must contain at least three vertices')
+    if risk_value < 1 or risk_value > 100:
+        raise ValueError('polygon risk value must be in [1, 100]')
+    for x, y in points:
+        if not math.isfinite(x) or not math.isfinite(y):
+            raise ValueError('polygon vertices must be finite')
+    twice_area = abs(
+        sum(
+            current_x * next_y - next_x * current_y
+            for (current_x, current_y), (next_x, next_y) in zip(
+                points,
+                points[1:] + points[:1],
+            )
+        )
+    )
+    if twice_area <= 1e-12:
+        raise ValueError('polygon must have nonzero area')
+
+    min_world_x = min(point[0] for point in points)
+    max_world_x = max(point[0] for point in points)
+    min_world_y = min(point[1] for point in points)
+    max_world_y = max(point[1] for point in points)
+    min_x = max(
+        0,
+        int(math.floor((min_world_x - spec.origin_x) / spec.resolution)),
+    )
+    max_x = min(
+        spec.width - 1,
+        int(math.floor((max_world_x - spec.origin_x) / spec.resolution)),
+    )
+    min_y = max(
+        0,
+        int(math.floor((min_world_y - spec.origin_y) / spec.resolution)),
+    )
+    max_y = min(
+        spec.height - 1,
+        int(math.floor((max_world_y - spec.origin_y) / spec.resolution)),
+    )
+    grid = np.zeros((spec.height, spec.width), dtype=np.uint8)
+    if min_x > max_x or min_y > max_y:
+        return grid
+
+    columns = np.arange(min_x, max_x + 1, dtype=np.float64)
+    rows = np.arange(min_y, max_y + 1, dtype=np.float64)
+    x_coordinates = spec.origin_x + (columns + 0.5) * spec.resolution
+    y_coordinates = spec.origin_y + (rows + 0.5) * spec.resolution
+    x_grid, y_grid = np.meshgrid(x_coordinates, y_coordinates)
+    inside = np.zeros(x_grid.shape, dtype=bool)
+    previous_x, previous_y = points[-1]
+    for current_x, current_y in points:
+        crosses_y = (current_y > y_grid) != (previous_y > y_grid)
+        denominator = previous_y - current_y
+        if abs(denominator) > 1e-12:
+            edge_x = (
+                (previous_x - current_x)
+                * (y_grid - current_y)
+                / denominator
+                + current_x
+            )
+            inside ^= crosses_y & (x_grid < edge_x)
+        previous_x, previous_y = current_x, current_y
+    region = grid[min_y:max_y + 1, min_x:max_x + 1]
+    region[inside] = risk_value
     return grid

@@ -32,6 +32,8 @@ def generate_launch_description():
     )
     enabled = LaunchConfiguration('enabled')
     depth_is_registered = LaunchConfiguration('depth_is_registered')
+    marker_enabled = LaunchConfiguration('marker_enabled')
+    loading_zone_enabled = LaunchConfiguration('loading_zone_enabled')
     return LaunchDescription([
         DeclareLaunchArgument(
             'enabled',
@@ -43,6 +45,16 @@ def generate_launch_description():
             default_value='false',
             description='Confirm depth pixels are aligned to the detection image.',
         ),
+        DeclareLaunchArgument(
+            'marker_enabled',
+            default_value='false',
+            description='Accept configured ArUco marker IDs as semantic risks.',
+        ),
+        DeclareLaunchArgument(
+            'loading_zone_enabled',
+            default_value='false',
+            description='Accept the configured loading-zone active state.',
+        ),
         Node(
             package='semantic_mask_generator',
             executable='semantic_mask_node',
@@ -53,6 +65,8 @@ def generate_launch_description():
                 {
                     'enabled': enabled,
                     'depth_is_registered': depth_is_registered,
+                    'marker_enabled': marker_enabled,
+                    'loading_zone_enabled': loading_zone_enabled,
                 },
             ],
         ),

@@ -17,12 +17,14 @@ import math
 import numpy as np
 import pytest
 
+from semantic_mask_generator.core import build_marker_profile_map
 from semantic_mask_generator.core import decode_depth_image
 from semantic_mask_generator.core import GridSpec
 from semantic_mask_generator.core import median_depth
 from semantic_mask_generator.core import ObservationStore
 from semantic_mask_generator.core import project_pixel
 from semantic_mask_generator.core import rasterize_observations
+from semantic_mask_generator.core import rasterize_polygon
 from semantic_mask_generator.core import RiskObservation
 from semantic_mask_generator.core import RiskProfile
 from semantic_mask_generator.core import scale_risk_profile
@@ -107,6 +109,39 @@ def test_observation_store_merges_nearby_same_class():
     assert active[0].x == 1.2
 
 
+def test_marker_ids_resolve_to_configured_profiles():
+    profiles = {
+        'fragile_goods': RiskProfile(value=85, radius_m=1.0),
+        'pallet_load': RiskProfile(value=65, radius_m=0.8),
+    }
+    resolved = build_marker_profile_map(
+        [101, 201],
+        ['fragile_goods', 'PALLET_LOAD'],
+        profiles,
+    )
+    assert resolved[101] == ('fragile_goods', profiles['fragile_goods'])
+    assert resolved[201] == ('pallet_load', profiles['pallet_load'])
+
+
+@pytest.mark.parametrize(
+    'ids, labels, message',
+    [
+        ([101], [], 'align'),
+        ([101, 101], ['fragile_goods', 'fragile_goods'], 'duplicate'),
+        ([-1], ['fragile_goods'], 'uint32'),
+        ([101], ['unknown'], 'risk profile'),
+    ],
+)
+def test_marker_profile_mapping_rejects_invalid_configuration(
+    ids,
+    labels,
+    message,
+):
+    profiles = {'fragile_goods': RiskProfile(value=85, radius_m=1.0)}
+    with pytest.raises(ValueError, match=message):
+        build_marker_profile_map(ids, labels, profiles)
+
+
 def test_risk_profile_value_and_radius_scales_are_validated():
     profile = scale_risk_profile(
         RiskProfile(value=100, radius_m=1.2),
@@ -156,3 +191,33 @@ def test_rasterization_uses_maximum_overlap_and_map_bounds():
     assert grid[5, 5] == 100
     assert grid[0, 0] == 0
     assert np.count_nonzero(grid) == 13
+
+
+def test_polygon_rasterization_uses_cell_centers_and_map_bounds():
+    spec = GridSpec(10, 10, 1.0, 0.0, 0.0)
+    grid = rasterize_polygon(
+        spec,
+        [(1.0, 1.0), (4.0, 1.0), (4.0, 3.0), (1.0, 3.0)],
+        85,
+    )
+    assert np.count_nonzero(grid) == 6
+    assert np.all(grid[1:3, 1:4] == 85)
+    assert grid[0, 0] == 0
+
+
+def test_polygon_rasterization_rejects_invalid_input():
+    spec = GridSpec(10, 10, 1.0, 0.0, 0.0)
+    with pytest.raises(ValueError, match='three vertices'):
+        rasterize_polygon(spec, [(0.0, 0.0), (1.0, 1.0)], 85)
+    with pytest.raises(ValueError, match='risk value'):
+        rasterize_polygon(
+            spec,
+            [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)],
+            0,
+        )
+    with pytest.raises(ValueError, match='nonzero area'):
+        rasterize_polygon(
+            spec,
+            [(0.0, 0.0), (0.0, 0.0), (0.0, 0.0)],
+            85,
+        )

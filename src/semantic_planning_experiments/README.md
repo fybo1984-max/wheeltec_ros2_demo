@@ -45,13 +45,14 @@ class-profile check:
 
 ```bash
 ros2 launch semantic_planning_experiments generator_planner_ab.launch.py \
-  domain_id:=159 synthetic_detection_class_id:=fragile_box \
-  output_path:=/tmp/semantic_fragile_box_ab.json
+  domain_id:=159 synthetic_detection_class_id:=fragile_goods \
+  output_path:=/tmp/semantic_fragile_goods_ab.json
 ```
 
 This only synthesizes a detector result. It does not prove that an
-off-the-shelf detector recognizes `forklift`, `pallet`, or `fragile_box`;
-those labels require matching custom detector output.
+off-the-shelf detector recognizes `other_vehicle`, `pallet_load`,
+`temporary_cargo`, or `fragile_goods`; those labels require matching custom
+detector or marker-adapter output.
 
 The global costmap is cleared and allowed to update between conditions.
 `cache_obstacle_heuristic` is disabled so the second result cannot reuse an
@@ -352,9 +353,10 @@ ros2 run semantic_planning_experiments semantic_experiment_plan \
   --output /tmp/semantic_paper_object_class_plan.json
 ```
 
-It expands `person`, `forklift`, `pallet`, and `fragile_box` into 12 planned
-trials. These synthetic labels test the downstream risk profiles only; they do
-not measure detector precision or recall.
+It expands `person`, `other_vehicle`, `pallet_load`, `temporary_cargo`, and
+`fragile_goods` into 15 planned trials. These synthetic labels test the
+downstream risk profiles only; they do not measure detector or marker
+recognition performance.
 
 Generate the independent risk-factor ablation plan:
 

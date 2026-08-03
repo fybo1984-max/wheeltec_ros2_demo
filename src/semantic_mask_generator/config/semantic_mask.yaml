@@ -22,8 +22,19 @@ semantic_mask_generator:
     publish_rate_hz: 2.0
     # Exact detector labels. Non-COCO warehouse labels require a matching
     # custom detector model; model weights are intentionally not stored here.
-    risk_class_names: [person, forklift, pallet, fragile_box]
-    risk_class_values: [100, 95, 65, 85]
-    risk_class_radii_m: [1.2, 1.8, 0.8, 1.0]
+    risk_class_names: [person, other_vehicle, pallet_load, temporary_cargo, fragile_goods]
+    risk_class_values: [100, 95, 65, 60, 85]
+    risk_class_radii_m: [1.2, 1.8, 0.8, 0.8, 1.0]
     risk_value_scale: 1.0
     risk_radius_scale: 1.0
+    marker_enabled: false
+    marker_topic: /aruco_marker_publisher/markers
+    marker_ids: [101]
+    marker_labels: [fragile_goods]
+    marker_minimum_confidence: 0.5
+    loading_zone_enabled: false
+    loading_zone_active_topic: /semantic/loading_zone_active
+    loading_zone_initial_active: false
+    loading_zone_risk_value: 85
+    # Map-frame polygon x/y pairs; replace with measured experiment coordinates.
+    loading_zone_vertices_m: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

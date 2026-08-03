@@ -1,7 +1,8 @@
 # Dynamic semantic mask generator
 
-This ROS 2 Humble package converts registered RGB-D object detections into a
-map-aligned `nav_msgs/OccupancyGrid` risk mask.
+This ROS 2 Humble package converts registered RGB-D object detections and
+configured ArUco marker poses into a map-aligned `nav_msgs/OccupancyGrid` risk
+mask.
 
 It deliberately does not start a camera, YOLO, Nav2, or robot hardware. The
 node is disabled by default and will also reject detections until
@@ -9,8 +10,9 @@ node is disabled by default and will also reject detections until
 with the color image used by the detector.
 
 The default warehouse profile accepts exact detector labels for `person`,
-`forklift`, `pallet`, and `fragile_box`. Their initial soft-risk
-value/radius pairs are `100/1.2 m`, `95/1.8 m`, `65/0.8 m`, and `85/1.0 m`.
+`other_vehicle`, `pallet_load`, `temporary_cargo`, and `fragile_goods`. Their
+initial soft-risk value/radius pairs are `100/1.2 m`, `95/1.8 m`, `65/0.8 m`,
+`60/0.8 m`, and `85/1.0 m`.
 These are experiment parameters rather than trained recognition claims and
 must be calibrated for the deployment site. Repeated observations are
 spatially merged, held briefly, and then linearly decay so stale positions
@@ -18,9 +20,35 @@ disappear. Persistent fragile-goods and loading zones remain in the static
 semantic mask.
 
 Only `person` is a standard COCO label commonly available in off-the-shelf
-YOLO models. The other three labels require a detector trained for those exact
-warehouse classes (or an upstream label adapter). This repository does not
+YOLO models. The other labels require a detector trained for those exact
+warehouse classes or an upstream label adapter. This repository does not
 contain or download model weights.
+
+`marker_enabled:=true` adds a second input on
+`/aruco_marker_publisher/markers`. The configured `marker_ids` and
+`marker_labels` map marker poses to existing risk profiles; the default mapping
+is marker `101` to `fragile_goods`. Marker poses are transformed directly into
+the map frame, so they do not require a synthetic bounding box or a second
+depth lookup. Unknown IDs and low-confidence markers are ignored. The marker
+input is disabled by default.
+
+For a marker-only software check, enable the node and marker input while
+leaving registered RGB-D confirmation false:
+
+```bash
+ros2 launch semantic_mask_generator dynamic_semantic_mask.launch.py \
+  enabled:=true marker_enabled:=true
+```
+
+This command expects an existing map, TF tree, and marker publisher; it does
+not start any of them.
+
+The optional loading-zone input uses a map-frame polygon from
+`loading_zone_vertices_m` and a `std_msgs/Bool` state on
+`/semantic/loading_zone_active`. When enabled, `true` overlays the configured
+soft risk value and `false` removes the zone on the next mask publication. The
+default polygon is a placeholder and must be replaced with measured experiment
+coordinates before enabling this input.
 
 `risk_value_scale` and `risk_radius_scale` apply validated positive
 multipliers to every configured class value and radius. They are intended for

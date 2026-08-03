@@ -122,11 +122,10 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 干净提交 `fc45dac` 的 18 次鲁棒性 Pilot 已全部通过验收，0 失败、0 缺失、
   0 无效，六组内部路径完全重复且风险区穿越均为 0。除深度噪声外的四种扰动
   与无扰动路径逐点一致；0.10 m 深度噪声触发不同但仍不穿越风险区的路径。
-- 动态风险档案现接受 `person`、`forklift`、`pallet`、`fragile_box` 精确
-  标签；对象类别 manifest 包含 4 个场景、12 个计划 trial，使用 ROS domain
-  160–171。除 `person` 外的真实识别仍需自定义仓储模型，当前合成试验不声称
-  已完成真实 YOLO 识别。
-- 干净提交 `b9e1611` 的 12 次对象类别 Pilot 已全部通过验收，无失败、缺失或
+- 旧版对象类别 Pilot 使用 `person`、`forklift`、`pallet`、`fragile_box` 四个
+  合成标签和 12 个计划 trial；它只验证了下游档案，不代表真实识别能力。当前
+  manifest 已迁移为人员、其他车辆、托盘货物、临时货物和易碎货物五类。
+- 干净提交 `b9e1611` 的旧版 12 次对象类别 Pilot 已全部通过验收，无失败、缺失或
   无效报告，四类路径各自完全重复。`person`、`forklift`、`fragile_box`
   完全绕行；低风险 `pallet` 仍穿越约 1.35 m，验证类别档案保持可调软代价。
 - 新增独立 `risk_value_scale` 与 `risk_radius_scale` 实验参数和实际 mask
@@ -163,6 +162,13 @@ ros2 launch largemodel largemodel_control.launch.py \
   TF 输入动态 mask 与 Nav2 planner。合成数据录制成 9.07 s、378 条消息的真实
   SQLite bag 后回放成功：1806 个风险栅格，基线穿越 2.347 m，语义路径穿越
   为 0，最小间距 1.109 m；该结果仅用于 recorded replay 工具链验证。
+- 动态 mask 新增可选 ArUco 标记输入，默认将标记 `101` 映射为
+  `fragile_goods`，使用标记三维位姿直接生成地图风险区。当前仓储语义档案收敛
+  为人员、其他车辆、托盘货物、临时货物和易碎货物；标记输入默认关闭。合成
+  标记端到端验证生成 309 个风险值为 85 的栅格，动态生成包 20 项测试通过。
+- 动态 mask 新增装卸区地图多边形和 `active/idle` 状态输入；Pilot 可先使用人工
+  状态真值隔离规划效果，后续再接人员与托盘联合识别。合成 `2 m × 2 m` 区域
+  active 时生成 400 个风险栅格，idle 后清为 0。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。

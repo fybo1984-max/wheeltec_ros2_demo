@@ -10,10 +10,12 @@
 
   <buildtool_depend>ament_python</buildtool_depend>
 
+  <depend>aruco_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>vision_msgs</depend>
   <exec_depend>launch</exec_depend>
