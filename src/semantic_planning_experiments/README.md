@@ -285,6 +285,25 @@ requires Humble's default `sqlite3` storage; an unsupported storage identifier
 fails visibly. The tool does not run Rosbag, ROS nodes, a controller, or
 hardware.
 
+Replay a completed bag through the dynamic mask generator and Nav2 A/B
+planner:
+
+```bash
+ros2 launch semantic_planning_experiments recorded_rgbd_planner_ab.launch.py \
+  bag_path:=/tmp/semantic_recorded_rgbd_archive_v1/bags/person_near_001 \
+  unit_id:=person_near_001 \
+  domain_id:=76 \
+  output_path:=/tmp/semantic_recorded_rgbd_results/person_near_001.json
+```
+
+The launch validates the SQLite bag, replays only the six preregistered RGB-D,
+TF, and detection topics, projects detections through the real dynamic mask
+generator, and runs paired disabled/enabled semantic-layer planning. The JSON
+report includes the independent unit id, recursive bag inventory, actual topic
+counts, mask geometry, both paths, risk-zone crossing, minimum clearance, path
+length, and planning time. It starts no synthetic source; the recorded
+`/detections` topic is the semantic detector input.
+
 Validate and expand the paper pilot manifest without executing any launch:
 
 ```bash

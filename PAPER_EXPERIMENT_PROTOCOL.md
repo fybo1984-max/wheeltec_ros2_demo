@@ -154,6 +154,17 @@ UTC 时间格式和结束时间顺序；随后保留元数据源文件，将规�
 和 bag 文件清单。登记器只处理已经停止录制的数据，不启动 Rosbag、ROS 节点、
 controller 或硬件。
 
+已登记单元使用 `recorded_rgbd_planner_ab.launch.py` 回放。该 launch 只回放预注册
+的 6 个 topic，将对齐深度、CameraInfo、Detection2D 和 TF 输入真实动态 mask
+生成器，再调用同一 Nav2 planner 计算关闭/开启语义层的配对路径。trial JSON
+保存 unit ID、bag 递归清单与实际消息数、mask 几何、两条路径及全部主要/次要
+规划指标，因此可直接进入现有验收器与论文成果导出链。
+
+在合成数据录制成真实 SQLite Rosbag 后完成了一次链路验证：bag 时长 9.07 s、
+共 378 条消息，六个必需 topic 均有数据；回放生成 1806 个风险栅格。基线路径
+长 14.005 m、穿越风险区 2.347 m，语义路径长 17.459 m、穿越为 0、最小间距
+1.109 m。该结果证明 recorded replay 实现闭环，不作为真实 RGB-D 实验结论。
+
 ## Pilot v1 场景
 
 | 场景 | RQ | 重复数 | 策略 | 主要验收条件 |

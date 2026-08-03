@@ -410,6 +410,21 @@ def _rosbag_topics(bag_path: Path, required_topics: list[str]) -> dict:
     return topics
 
 
+def inspect_recorded_bag(
+    bag_path: Path,
+    required_topics: list[str],
+) -> dict:
+    """Return a verified SQLite Rosbag inventory and actual topic counts."""
+    bag_path = bag_path.expanduser().resolve()
+    inventory = _directory_inventory(bag_path)
+    topics = _rosbag_topics(bag_path, required_topics)
+    return {
+        'path': str(bag_path),
+        'topics': topics,
+        **inventory,
+    }
+
+
 def _validate_unit_metadata(path: Path, required: list[str]) -> dict:
     if not path.is_file():
         raise ValueError('unit metadata JSON is missing')
@@ -488,17 +503,19 @@ def _audit_collected_unit(
     required_topics,
     required_metadata,
 ) -> dict:
-    inventory = _directory_inventory(unit['bag_path'])
-    topics = _rosbag_topics(unit['bag_path'], required_topics)
+    bag = inspect_recorded_bag(unit['bag_path'], required_topics)
     metadata = _validate_unit_metadata(
         unit['metadata_path'],
         required_metadata,
     )
     return {
         'bag': {
+            **bag,
             'path': unit['bag_relative'],
-            'topics': {topic: topics[topic] for topic in required_topics},
-            **inventory,
+            'topics': {
+                topic: bag['topics'][topic]
+                for topic in required_topics
+            },
         },
         'metadata': {
             **metadata,

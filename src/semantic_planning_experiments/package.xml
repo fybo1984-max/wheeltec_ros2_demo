@@ -26,6 +26,7 @@
   <exec_depend>nav2_planner</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rosbag2_transport</exec_depend>
   <exec_depend>semantic_costmap_plugin</exec_depend>
   <exec_depend>semantic_mask_generator</exec_depend>
   <exec_depend>tf2_ros</exec_depend>

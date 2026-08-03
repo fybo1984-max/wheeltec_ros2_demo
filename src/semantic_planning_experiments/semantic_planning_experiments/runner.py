@@ -44,6 +44,10 @@ from semantic_planning_experiments.metrics import (
     path_metrics,
     sha256_file,
 )
+from semantic_planning_experiments.recorded_replay import (
+    RECORDED_RGBD_TOPICS,
+)
+from semantic_planning_experiments.archive_audit import inspect_recorded_bag
 
 
 class SemanticPlanningAB(Node):
@@ -70,6 +74,8 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('topic_input_mode', 'fixture')
         self.declare_parameter('mask_producer_config_path', '')
         self.declare_parameter('synthetic_source_config_path', '')
+        self.declare_parameter('recorded_bag_path', '')
+        self.declare_parameter('recorded_unit_id', '')
         self.declare_parameter(
             'producer_detection_active_duration_sec',
             -1.0,
@@ -451,6 +457,12 @@ class SemanticPlanningAB(Node):
         synthetic_config_value = str(
             self.get_parameter('synthetic_source_config_path').value
         ).strip()
+        recorded_bag_value = str(
+            self.get_parameter('recorded_bag_path').value
+        ).strip()
+        recorded_unit_id = str(
+            self.get_parameter('recorded_unit_id').value
+        ).strip()
         cost_mode = str(self.get_parameter('cost_mode').value).strip()
         task_urgency = int(self.get_parameter('task_urgency').value)
         avoidance_level = float(
@@ -483,6 +495,18 @@ class SemanticPlanningAB(Node):
             raise ValueError(
                 'mask recovery requires external topic input'
             )
+        if bool(recorded_bag_value) != bool(recorded_unit_id):
+            raise ValueError(
+                'recorded_bag_path and recorded_unit_id must be set together'
+            )
+        if recorded_bag_value and not (
+            mask_source == 'topic'
+            and topic_input_mode == 'external'
+            and not synthetic_config_value
+        ):
+            raise ValueError(
+                'recorded bags require external topic input without synthetic data'
+            )
         if mask_source == 'file' or topic_input_mode == 'fixture':
             if not mask_yaml_value:
                 raise ValueError('mask_yaml_path must not be empty')
@@ -501,6 +525,92 @@ class SemanticPlanningAB(Node):
             Path(synthetic_config_value).expanduser().resolve()
             if synthetic_config_value else None
         )
+        recorded_bag = (
+            inspect_recorded_bag(
+                Path(recorded_bag_value),
+                RECORDED_RGBD_TOPICS,
+            )
+            if recorded_bag_value else None
+        )
+
+        producer_runtime_parameters = None
+        if producer_config_path:
+            producer_runtime_parameters = {
+                'observation_hold_sec': float(
+                    self.get_parameter(
+                        'producer_observation_hold_sec'
+                    ).value
+                ),
+                'observation_decay_sec': float(
+                    self.get_parameter(
+                        'producer_observation_decay_sec'
+                    ).value
+                ),
+                'risk_value_scale': float(
+                    self.get_parameter('producer_risk_value_scale').value
+                ),
+                'risk_radius_scale': float(
+                    self.get_parameter('producer_risk_radius_scale').value
+                ),
+            }
+        if producer_runtime_parameters is not None and synthetic_config_path:
+            producer_runtime_parameters.update({
+                'detection_active_duration_sec': float(
+                    self.get_parameter(
+                        'producer_detection_active_duration_sec'
+                    ).value
+                ),
+                'depth_m': float(
+                    self.get_parameter('producer_depth_m').value
+                ),
+                'depth_noise_std_m': float(
+                    self.get_parameter(
+                        'producer_depth_noise_std_m'
+                    ).value
+                ),
+                'depth_invalid_fraction': float(
+                    self.get_parameter(
+                        'producer_depth_invalid_fraction'
+                    ).value
+                ),
+                'random_seed': int(
+                    self.get_parameter('producer_random_seed').value
+                ),
+                'detection_score': float(
+                    self.get_parameter('producer_detection_score').value
+                ),
+                'detection_class_id': str(
+                    self.get_parameter('producer_detection_class_id').value
+                ),
+                'person_count': int(
+                    self.get_parameter('producer_person_count').value
+                ),
+                'detection_center_x_fraction': float(
+                    self.get_parameter(
+                        'producer_detection_center_x_fraction'
+                    ).value
+                ),
+                'detection_center_y_fraction': float(
+                    self.get_parameter(
+                        'producer_detection_center_y_fraction'
+                    ).value
+                ),
+                'person_spacing_y_fraction': float(
+                    self.get_parameter(
+                        'producer_person_spacing_y_fraction'
+                    ).value
+                ),
+                'detection_publish_every_n_frames': int(
+                    self.get_parameter(
+                        'producer_detection_publish_every_n_frames'
+                    ).value
+                ),
+                'detection_timestamp_offset_sec': float(
+                    self.get_parameter(
+                        'producer_detection_timestamp_offset_sec'
+                    ).value
+                ),
+            })
 
         self._wait_for_interfaces()
         if mask_source == 'topic':
@@ -590,93 +700,10 @@ class SemanticPlanningAB(Node):
                     sha256_file(synthetic_config_path)
                     if synthetic_config_path else None
                 ),
+                'recorded_unit_id': recorded_unit_id or None,
+                'recorded_bag': recorded_bag,
                 'mask_producer_runtime_parameters': (
-                    {
-                        'detection_active_duration_sec': float(
-                            self.get_parameter(
-                                'producer_detection_active_duration_sec'
-                            ).value
-                        ),
-                        'observation_hold_sec': float(
-                            self.get_parameter(
-                                'producer_observation_hold_sec'
-                            ).value
-                        ),
-                        'observation_decay_sec': float(
-                            self.get_parameter(
-                                'producer_observation_decay_sec'
-                            ).value
-                        ),
-                        'depth_m': float(
-                            self.get_parameter('producer_depth_m').value
-                        ),
-                        'depth_noise_std_m': float(
-                            self.get_parameter(
-                                'producer_depth_noise_std_m'
-                            ).value
-                        ),
-                        'depth_invalid_fraction': float(
-                            self.get_parameter(
-                                'producer_depth_invalid_fraction'
-                            ).value
-                        ),
-                        'random_seed': int(
-                            self.get_parameter(
-                                'producer_random_seed'
-                            ).value
-                        ),
-                        'detection_score': float(
-                            self.get_parameter(
-                                'producer_detection_score'
-                            ).value
-                        ),
-                        'detection_class_id': str(
-                            self.get_parameter(
-                                'producer_detection_class_id'
-                            ).value
-                        ),
-                        'person_count': int(
-                            self.get_parameter(
-                                'producer_person_count'
-                            ).value
-                        ),
-                        'detection_center_x_fraction': float(
-                            self.get_parameter(
-                                'producer_detection_center_x_fraction'
-                            ).value
-                        ),
-                        'detection_center_y_fraction': float(
-                            self.get_parameter(
-                                'producer_detection_center_y_fraction'
-                            ).value
-                        ),
-                        'person_spacing_y_fraction': float(
-                            self.get_parameter(
-                                'producer_person_spacing_y_fraction'
-                            ).value
-                        ),
-                        'detection_publish_every_n_frames': int(
-                            self.get_parameter(
-                                'producer_detection_publish_every_n_frames'
-                            ).value
-                        ),
-                        'detection_timestamp_offset_sec': float(
-                            self.get_parameter(
-                                'producer_detection_timestamp_offset_sec'
-                            ).value
-                        ),
-                        'risk_value_scale': float(
-                            self.get_parameter(
-                                'producer_risk_value_scale'
-                            ).value
-                        ),
-                        'risk_radius_scale': float(
-                            self.get_parameter(
-                                'producer_risk_radius_scale'
-                            ).value
-                        ),
-                    }
-                    if producer_config_path else None
+                    producer_runtime_parameters
                 ),
                 'mask_topic': (
                     self.get_parameter('mask_topic').value

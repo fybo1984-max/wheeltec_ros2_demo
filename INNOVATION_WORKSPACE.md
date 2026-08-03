@@ -81,7 +81,7 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 语义 costmap 插件：10 个 CTest 全部通过，其中 14 个行为测试通过。
 - 动态语义 mask：13 项测试通过，其中 10 项投影、衰减、半径缩放和栅格化
   行为测试通过。
-- 规划器级 A/B 实验包：99 项测试通过，其中 96 项地图坐标、动态栅格转换、
+- 规划器级 A/B 实验包：105 项测试通过，其中 102 项地图坐标、动态栅格转换、
   路径指标、重复试验统计、论文 manifest、结果验收和成果导出行为测试
   通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
 - 默认模板路线的两次离线规划得到完全相同的路径几何：基线穿越语义区约
@@ -159,6 +159,10 @@ ros2 launch largemodel largemodel_control.launch.py \
   消息数、元数据、UTC 时间顺序和文件清单，再将 `planned` 原子登记为
   `collected`；原始 bag 和元数据源不改写，索引前后哈希与归档清单写入不可
   覆盖回执。
+- 新增真实 Rosbag 回放 A/B launch，将已录制的对齐深度、CameraInfo、检测和
+  TF 输入动态 mask 与 Nav2 planner。合成数据录制成 9.07 s、378 条消息的真实
+  SQLite bag 后回放成功：1806 个风险栅格，基线穿越 2.347 m，语义路径穿越
+  为 0，最小间距 1.109 m；该结果仅用于 recorded replay 工具链验证。
 - `largemodel`、`wheeltec_nav2`、两个麦克风包和 Nav2 均从创新工作空间
   的 `install/` 加载。
 - 稳定工作空间仍保持在 `main`，没有因本次建立创新工作空间而修改。

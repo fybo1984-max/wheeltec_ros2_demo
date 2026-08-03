@@ -87,6 +87,8 @@ def generate_launch_description():
     synthetic_source_config = LaunchConfiguration(
         'synthetic_source_config'
     )
+    recorded_bag_path = LaunchConfiguration('recorded_bag_path')
+    recorded_unit_id = LaunchConfiguration('recorded_unit_id')
     producer_detection_active_duration = LaunchConfiguration(
         'producer_detection_active_duration_sec'
     )
@@ -146,6 +148,10 @@ def generate_launch_description():
     recovery_timeout_seconds = LaunchConfiguration(
         'recovery_timeout_seconds'
     )
+    mask_publish_timeout_seconds = LaunchConfiguration(
+        'mask_publish_timeout_seconds'
+    )
+    runner_delay_seconds = LaunchConfiguration('runner_delay_seconds')
     domain_id = LaunchConfiguration('domain_id')
 
     configured_parameters = RewrittenYaml(
@@ -213,6 +219,8 @@ def generate_launch_description():
             'topic_input_mode': topic_input_mode,
             'mask_producer_config_path': mask_producer_config,
             'synthetic_source_config_path': synthetic_source_config,
+            'recorded_bag_path': recorded_bag_path,
+            'recorded_unit_id': recorded_unit_id,
             'producer_detection_active_duration_sec':
                 producer_detection_active_duration,
             'producer_observation_hold_sec': producer_observation_hold,
@@ -248,6 +256,7 @@ def generate_launch_description():
             'task_urgency': task_urgency,
             'avoidance_level': avoidance_level,
             'recovery_timeout_seconds': recovery_timeout_seconds,
+            'mask_publish_timeout_seconds': mask_publish_timeout_seconds,
             'code_revision': _workspace_revision(experiment_share),
         }],
     )
@@ -291,6 +300,16 @@ def generate_launch_description():
             'synthetic_source_config',
             default_value='',
             description='Optional synthetic RGB-D config for hashing.',
+        ),
+        DeclareLaunchArgument(
+            'recorded_bag_path',
+            default_value='',
+            description='Optional recorded RGB-D Rosbag directory.',
+        ),
+        DeclareLaunchArgument(
+            'recorded_unit_id',
+            default_value='',
+            description='Optional independent archive unit id.',
         ),
         DeclareLaunchArgument(
             'producer_detection_active_duration_sec',
@@ -387,11 +406,21 @@ def generate_launch_description():
             default_value='0.0',
             description='Wait for an empty external mask and replan if positive.',
         ),
+        DeclareLaunchArgument(
+            'mask_publish_timeout_seconds',
+            default_value='10.0',
+            description='Maximum wait for a nonempty external mask.',
+        ),
+        DeclareLaunchArgument(
+            'runner_delay_seconds',
+            default_value='5.0',
+            description='Delay before starting controller-free A/B planning.',
+        ),
         map_server,
         planner_server,
         lifecycle_manager,
         experiment_transform,
-        TimerAction(period=5.0, actions=[runner]),
+        TimerAction(period=runner_delay_seconds, actions=[runner]),
         RegisterEventHandler(
             OnProcessExit(
                 target_action=runner,
