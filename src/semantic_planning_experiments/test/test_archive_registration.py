@@ -198,6 +198,12 @@ def test_registration_validates_and_closes_the_archive_unit(
     }
     assert sha256_file(inputs['bag_data']) == bag_sha256
     assert receipt['index']['after_sha256'] == sha256_file(inputs['index'])
+    assert receipt['artifacts']['metadata']['sha256'] == (
+        sha256_file(archived_metadata)
+    )
+    assert receipt['metadata']['source_sha256'] == (
+        sha256_file(inputs['metadata_input'])
+    )
 
 
 def test_registration_rejects_unknown_unit(tmp_path: Path, monkeypatch):

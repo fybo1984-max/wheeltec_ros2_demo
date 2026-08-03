@@ -167,6 +167,7 @@ def register_collected_unit(
     index_content = _encoded_yaml(raw_index)
     index_after_sha256 = hashlib.sha256(index_content).hexdigest()
     metadata_archive_sha256 = hashlib.sha256(metadata_content).hexdigest()
+    artifacts['metadata']['sha256'] = metadata_archive_sha256
     receipt = {
         'schema_version': 1,
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
