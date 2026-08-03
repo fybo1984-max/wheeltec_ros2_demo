@@ -262,6 +262,26 @@ a detector, Rosbag, a controller, or the base. A separate operator notice and
 explicit authorization are still required before executing any generated
 command.
 
+After Rosbag has stopped and the metadata draft has been completed as a
+standalone JSON file, register the unit without editing the ledger manually:
+
+```bash
+ros2 run semantic_planning_experiments semantic_archive_register \
+  --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
+  --archive-index /tmp/semantic_recorded_rgbd_archive_v1/index.yaml \
+  --unit-id person_near_001 \
+  --metadata-input /tmp/semantic_recorded_rgbd_staging/person_near_001.json \
+  --receipt /tmp/semantic_recorded_rgbd_archive_v1/receipts/person_near_001.json
+```
+
+Registration accepts only a still-`planned` unit. Before writing anything, it
+checks the immutable bag inventory, Rosbag storage references, required topics
+and positive message counts, metadata SHA-256 values, finite map coordinates,
+UTC timestamps, and recording time order. It preserves the source metadata and
+bag, refuses to overwrite the archived metadata or receipt, atomically changes
+the ledger status to `collected`, and records before/after ledger hashes in the
+receipt. The tool does not run Rosbag, ROS nodes, a controller, or hardware.
+
 Validate and expand the paper pilot manifest without executing any launch:
 
 ```bash

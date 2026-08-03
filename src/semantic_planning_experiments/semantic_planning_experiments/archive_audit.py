@@ -15,7 +15,7 @@
 """Initialize and audit external recorded RGB-D experiment archives."""
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
@@ -355,7 +355,12 @@ def _validate_unit_metadata(path: Path, required: list[str]) -> dict:
         raise ValueError(f'unit metadata is missing fields: {missing}')
     for name in required:
         value = metadata[name]
-        if name.endswith('_sha256'):
+        if name == 'camera_model_and_serial':
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    'unit metadata camera_model_and_serial must be a string'
+                )
+        elif name.endswith('_sha256'):
             if (
                 not isinstance(value, str)
                 or not _SHA256_PATTERN.fullmatch(value)
@@ -381,14 +386,30 @@ def _validate_unit_metadata(path: Path, required: list[str]) -> dict:
                 raise ValueError(
                     'recording_start_and_end_utc must be a mapping'
                 )
+            timestamps = {}
             for boundary in ('start_utc', 'end_utc'):
-                if (
-                    not isinstance(value.get(boundary), str)
-                    or not value[boundary]
-                ):
+                raw_timestamp = value.get(boundary)
+                if not isinstance(raw_timestamp, str) or not raw_timestamp:
                     raise ValueError(
                         f'recording_start_and_end_utc.{boundary} is invalid'
                     )
+                try:
+                    timestamp = datetime.fromisoformat(
+                        raw_timestamp.replace('Z', '+00:00')
+                    )
+                except ValueError as error:
+                    raise ValueError(
+                        f'recording_start_and_end_utc.{boundary} is invalid'
+                    ) from error
+                if timestamp.utcoffset() != timedelta(0):
+                    raise ValueError(
+                        f'recording_start_and_end_utc.{boundary} must be UTC'
+                    )
+                timestamps[boundary] = timestamp
+            if timestamps['end_utc'] <= timestamps['start_utc']:
+                raise ValueError(
+                    'recording end_utc must be later than start_utc'
+                )
         elif value is None or value == '' or value == [] or value == {}:
             raise ValueError(f'unit metadata {name} must not be empty')
     return {
@@ -428,6 +449,23 @@ def _audit_collected_unit(
             'path': unit['metadata_relative'],
         },
     }
+
+
+def validate_collected_unit_artifacts(
+    unit: dict,
+    required_topics: list[str],
+    required_metadata: list[str],
+    metadata_path: Path | None = None,
+) -> dict:
+    """Validate one bag and metadata file without changing the archive."""
+    candidate = dict(unit)
+    if metadata_path is not None:
+        candidate['metadata_path'] = metadata_path.expanduser().resolve()
+    return _audit_collected_unit(
+        candidate,
+        required_topics,
+        required_metadata,
+    )
 
 
 def _preserved_invalid_artifacts(unit: dict) -> dict | None:

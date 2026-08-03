@@ -145,6 +145,13 @@ semantic 及逐 trial 配对的 `semantic_minus_baseline`，覆盖路径长度�
 ROS、相机、检测器、Rosbag、controller 或底盘。预检通过不等于授权采集，启动
 物理相机和执行录制命令前仍须另行通知并获得现场操作人员确认。
 
+录制停止后使用 `semantic_archive_register` 登记单元，禁止手工将索引状态改为
+`collected`。登记器在任何写入前验证 bag 递归清单、Rosbag 存储引用、必需 topic
+及正消息数、元数据 SHA-256、有限地图坐标、UTC 时间格式和结束时间顺序；随后
+保留元数据源文件，将规范化副本写入归档，并原子替换索引。工具拒绝覆盖既有
+元数据或回执，回执记录索引变更前后哈希和 bag 文件清单。登记器只处理已经
+停止录制的数据，不启动 Rosbag、ROS 节点、controller 或硬件。
+
 ## Pilot v1 场景
 
 | 场景 | RQ | 重复数 | 策略 | 主要验收条件 |

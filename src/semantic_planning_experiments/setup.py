@@ -36,6 +36,8 @@ setup(
         'console_scripts': [
             'semantic_archive_audit = '
             'semantic_planning_experiments.archive_audit:main',
+            'semantic_archive_register = '
+            'semantic_planning_experiments.archive_registration:main',
             'semantic_collection_preflight = '
             'semantic_planning_experiments.collection_preflight:main',
             'semantic_experiment_evaluate = '
