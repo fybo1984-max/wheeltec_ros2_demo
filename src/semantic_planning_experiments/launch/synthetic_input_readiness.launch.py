@@ -33,7 +33,7 @@ def generate_launch_description() -> LaunchDescription:
         name='synthetic_input_source',
         parameters=[{
             'color_topic': '/camera/color/image_raw',
-            'depth_topic': '/camera/aligned_depth_to_color/image_raw',
+            'depth_topic': '/camera/depth/image_raw',
             'camera_info_topic': '/camera/color/camera_info',
             'detections_topic': '/detections',
             'detection_class_id': 'person',

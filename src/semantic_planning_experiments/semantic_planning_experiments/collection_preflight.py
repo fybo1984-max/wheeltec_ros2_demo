@@ -49,6 +49,7 @@ def _is_velocity_topic(topic: str) -> bool:
 def _metadata_draft(required_metadata: list[str]) -> dict:
     templates = {
         'camera_model_and_serial': '',
+        'detector_runtime_version': '',
         'detector_model_sha256': '',
         'map_yaml_sha256': '',
         'measured_person_pose_in_map': {

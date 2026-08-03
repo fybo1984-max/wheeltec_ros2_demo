@@ -85,7 +85,7 @@ def _start_recorded_pipeline(context, experiment_share, generator_config):
                 'enabled': True,
                 'depth_is_registered': True,
                 'depth_image_topic': (
-                    '/camera/aligned_depth_to_color/image_raw'
+                    '/camera/depth/image_raw'
                 ),
                 'observation_hold_sec': LaunchConfiguration(
                     'observation_hold_sec'

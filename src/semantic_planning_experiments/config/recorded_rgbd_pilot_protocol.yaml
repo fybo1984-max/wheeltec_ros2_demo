@@ -102,13 +102,14 @@ missing_data_policy: >-
 data_collection:
   required_topics:
     - /camera/color/image_raw
-    - /camera/aligned_depth_to_color/image_raw
+    - /camera/depth/image_raw
     - /camera/color/camera_info
     - /tf
     - /tf_static
     - /detections
   required_metadata:
     - camera_model_and_serial
+    - detector_runtime_version
     - detector_model_sha256
     - map_yaml_sha256
     - measured_person_pose_in_map

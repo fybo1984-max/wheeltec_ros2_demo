@@ -23,7 +23,7 @@ from semantic_planning_experiments.archive_audit import inspect_recorded_bag
 
 RECORDED_RGBD_TOPICS = [
     '/camera/color/image_raw',
-    '/camera/aligned_depth_to_color/image_raw',
+    '/camera/depth/image_raw',
     '/camera/color/camera_info',
     '/tf',
     '/tf_static',

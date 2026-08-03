@@ -48,7 +48,7 @@ def generate_launch_description() -> LaunchDescription:
             'input_image_topic': input_topic,
             'detections_topic': detections_topic,
             'annotated_image_topic': annotated_topic,
-            'device': device,
+            'device': ParameterValue(device, value_type=str),
             'conf_threshold': ParameterValue(
                 confidence,
                 value_type=float,
