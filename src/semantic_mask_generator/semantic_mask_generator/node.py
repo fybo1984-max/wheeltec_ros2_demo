@@ -23,6 +23,7 @@ from nav_msgs.msg import OccupancyGrid
 import numpy as np
 import rclpy
 from rclpy.duration import Duration
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy
 from rclpy.qos import HistoryPolicy
@@ -575,11 +576,14 @@ def main(args=None) -> None:
     """Run the semantic mask generator."""
     rclpy.init(args=args)
     node = SemanticMaskNode()
+    executor = MultiThreadedExecutor(num_threads=2)
+    executor.add_node(node)
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
+        executor.shutdown()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
