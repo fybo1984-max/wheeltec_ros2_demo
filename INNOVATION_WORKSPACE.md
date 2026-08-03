@@ -158,6 +158,10 @@ ros2 launch largemodel largemodel_control.launch.py \
   对齐深度、CameraInfo 和人员检测均达到最少消息数，并验证深度编码、内参、
   图像尺寸、frame、逐检测帧最坏同步误差以及 `map` TF。合成 ROS 端到端报告
   11 项检查全部通过，能在生成报告后自动退出。
+- 人员检测适配节点已改为默认订阅 Astra `/camera/color/image_raw`，仅发布达到
+  置信度阈值的标准 `person` 到 `/detections`，完整保留 stamp、frame 和二维框。
+  模型、输入输出 topic、设备和阈值均可配置；7 项消息契约测试通过。模型权重
+  继续由 `.gitignore` 排除，真实单元元数据记录其 SHA-256。
 - 新增采集单元登记器，录制停止后自动验证 SQLite 完整性、数据库实际 topic
   消息数、元数据、UTC 时间顺序和文件清单，再将 `planned` 原子登记为
   `collected`；原始 bag 和元数据源不改写，索引前后哈希与归档清单写入不可

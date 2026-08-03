@@ -1,105 +1,163 @@
+# Copyright 2026 WHEELTEC innovation workspace
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Publish Ultralytics detections using the ROS 2 vision message contract."""
+
+from pathlib import Path
+
+from cv_bridge import CvBridge
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
-from vision_msgs.msg import Detection2D, Detection2DArray, BoundingBox2D, ObjectHypothesisWithPose
-from ultralytics import YOLO
-import cv2
-import numpy as np
+from vision_msgs.msg import Detection2DArray
+
+from ultralytics_ros2.detection_contract import build_detection_array
+from ultralytics_ros2.detection_contract import DetectionCandidate
+
+
+def _load_yolo(model_path: Path):
+    try:
+        from ultralytics import YOLO
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            'Ultralytics is not installed in this Python environment; '
+            'install a Jetson-compatible ultralytics runtime before starting '
+            'the detector.'
+        ) from error
+    return YOLO(str(model_path))
+
 
 class YOLODetector(Node):
-    def __init__(self):
+    """Run inference on Astra color images and publish Detection2DArray."""
+
+    def __init__(self) -> None:
         super().__init__('yolo_detector')
-        
-        # 参数声明
-        self.declare_parameters(
-            namespace='',
-            parameters=[
-                ('model', 'yolov8n.pt'),
-                ('input_image_topic', '/camera/image_raw'),
-                ('enable_cuda', True),
-                ('conf_threshold', 0.5)
-            ]
+        self.declare_parameter('model', 'yolo11n.pt')
+        self.declare_parameter(
+            'input_image_topic',
+            '/camera/color/image_raw',
         )
-        
-        # 参数获取
-        model_path = self.get_parameter('model').value
-        input_topic = self.get_parameter('input_image_topic').value
-        enable_cuda = self.get_parameter('enable_cuda').value
-        self.conf_threshold = self.get_parameter('conf_threshold').value
+        self.declare_parameter('detections_topic', '/detections')
+        self.declare_parameter(
+            'annotated_image_topic',
+            '/semantic/detected_image',
+        )
+        self.declare_parameter('device', '0')
+        self.declare_parameter('conf_threshold', 0.5)
+        self.declare_parameter('class_names', ['person'])
+        self.declare_parameter('publish_annotated_image', True)
 
-        # 初始化YOLO模型
-        self.model = YOLO(model_path)
-        if enable_cuda:
-            self.model.to('cuda')
-        self.model.fuse()
-
-        # 图像处理工具
-        self.bridge = CvBridge()
-        
-        # 订阅/发布
-        self.sub = self.create_subscription(Image, input_topic, self.image_callback, 10)
-        self.pub_image = self.create_publisher(Image, 'detected_image', 10)
-        self.pub_detections = self.create_publisher(Detection2DArray, 'detections', 10)
-        
-        # 帧率计算
-        self.frame_count = 0
-        self.last_time = self.get_clock().now()
-
-    def image_callback(self, msg):
-        # 转换图像格式
-        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        
-        # 执行推理
-        results = self.model.predict(
-            source=cv_image,
-            conf=self.conf_threshold,
-            verbose=False
+        model_path = Path(
+            str(self.get_parameter('model').value)
+        ).expanduser().resolve()
+        if not model_path.is_file():
+            raise ValueError(f'YOLO model file does not exist: {model_path}')
+        self._device = str(self.get_parameter('device').value).strip()
+        self._confidence = float(
+            self.get_parameter('conf_threshold').value
+        )
+        if not 0.0 <= self._confidence <= 1.0:
+            raise ValueError('conf_threshold must be in [0, 1]')
+        self._class_names = [
+            str(name)
+            for name in self.get_parameter('class_names').value
+        ]
+        self._publish_annotated = bool(
+            self.get_parameter('publish_annotated_image').value
+        )
+        self._model = _load_yolo(model_path)
+        self._bridge = CvBridge()
+        self._detections_publisher = self.create_publisher(
+            Detection2DArray,
+            str(self.get_parameter('detections_topic').value),
+            qos_profile_sensor_data,
+        )
+        self._annotated_publisher = self.create_publisher(
+            Image,
+            str(self.get_parameter('annotated_image_topic').value),
+            qos_profile_sensor_data,
+        )
+        self.create_subscription(
+            Image,
+            str(self.get_parameter('input_image_topic').value),
+            self._image_callback,
+            qos_profile_sensor_data,
+        )
+        self.get_logger().info(
+            f'person detector ready; model={model_path}; '
+            f'device={self._device or "auto"}; '
+            f'classes={self._class_names}'
         )
 
-        # 准备检测结果消息
-        detections_msg = Detection2DArray()
-        detections_msg.header = msg.header
-        
-        # 绘制检测结果
-        annotated_image = results[0].plot()
-        
-        # 计算并显示帧率
-        current_time = self.get_clock().now()
-        delta_time = current_time - self.last_time
-        fps = 1e9 / delta_time.nanoseconds if delta_time.nanoseconds > 0 else 0.0
-        cv2.putText(annotated_image, f'FPS: {fps:.2f}', (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        
-        # 发布带检测结果的图像
-        self.pub_image.publish(self.bridge.cv2_to_imgmsg(annotated_image, 'bgr8'))
-        
-        # 填充检测结果
-        for box in results[0].boxes:
-            detection = Detection2D()
-            detection.bbox = BoundingBox2D()
-            detection.bbox.center.position.x = float(box.xywh[0][0])
-            detection.bbox.center.position.y = float(box.xywh[0][1])
-            detection.bbox.size_x = float(box.xywh[0][2])
-            detection.bbox.size_y = float(box.xywh[0][3])
-            
-            hypothesis = ObjectHypothesisWithPose()
-            hypothesis.hypothesis.class_id = self.model.names[int(box.cls)]
-            hypothesis.hypothesis.score = float(box.conf)
-            detection.results.append(hypothesis)
-            
-            detections_msg.detections.append(detection)
-        
-        # 发布检测结果
-        self.pub_detections.publish(detections_msg)
-        self.last_time = current_time
+    def _image_callback(self, message: Image) -> None:
+        image = self._bridge.imgmsg_to_cv2(
+            message,
+            desired_encoding='bgr8',
+        )
+        options = {
+            'source': image,
+            'conf': self._confidence,
+            'verbose': False,
+        }
+        if self._device:
+            options['device'] = self._device
+        results = self._model.predict(**options)
+        result = results[0]
+        candidates = []
+        for box in result.boxes:
+            center_x, center_y, size_x, size_y = (
+                float(value) for value in box.xywh[0].tolist()
+            )
+            class_index = int(box.cls.item())
+            candidates.append(DetectionCandidate(
+                class_id=str(self._model.names[class_index]),
+                score=float(box.conf.item()),
+                center_x=center_x,
+                center_y=center_y,
+                size_x=size_x,
+                size_y=size_y,
+            ))
+        detections = build_detection_array(
+            message.header,
+            candidates,
+            self._class_names,
+            self._confidence,
+        )
+        self._detections_publisher.publish(detections)
+        if self._publish_annotated:
+            annotated = self._bridge.cv2_to_imgmsg(
+                result.plot(),
+                encoding='bgr8',
+            )
+            annotated.header = message.header
+            self._annotated_publisher.publish(annotated)
 
-def main(args=None):
+
+def main(args=None) -> None:
+    """Run the configurable Ultralytics detection node."""
     rclpy.init(args=args)
-    detector = YOLODetector()
-    rclpy.spin(detector)
-    detector.destroy_node()
-    rclpy.shutdown()
+    node = YOLODetector()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

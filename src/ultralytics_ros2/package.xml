@@ -2,19 +2,22 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>ultralytics_ros2</name>
-  <version>0.0.0</version>
-  <description>YOLOv8 object detection package for ROS2</description>
-  <maintainer email="your@email.com">Your Name</maintainer>
-  <license>Apache 2.0</license>
+  <version>0.1.0</version>
+  <description>Warehouse person detections for semantic navigation.</description>
+  <maintainer email="fybo1984-max@users.noreply.github.com">
+    WHEELTEC innovation workspace
+  </maintainer>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
-  <depend>rclpy</depend>
-  <exec_depend>ament_index_python</exec_depend>
-  <depend>sensor_msgs</depend>
   <depend>cv_bridge</depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>vision_msgs</depend>
-  <depend>ultralytics</depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>ultralytics</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

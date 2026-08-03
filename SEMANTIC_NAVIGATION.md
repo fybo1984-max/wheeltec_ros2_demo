@@ -45,7 +45,7 @@ in Cluttered Warehouse Spaces` 给出的总体闭环合理：
 - 可复用概念：`SemanticObservation`、语义对象去重、查询服务、RViz 标记
 - 不直接移植：
   - `sim_bringup` 会引入第二套 TurtleBot3/Gazebo 导航栈；
-  - `llm_navigator` 会直接发送 `NavigateToPose`，与现有语音/大模型导航重叠；
+  - 附带的第二套任务导航器会与现有导航入口重叠；
   - `perception` 用二维 LiDAR 方位近似目标深度，不符合论文的 RGB-D 投影方法；
   - 语义地图重启即丢失，不满足可重复实验要求。
 
@@ -82,9 +82,11 @@ source /opt/ros/humble/setup.bash
 source install/setup.bash
 
 colcon build --symlink-install --packages-up-to \
+  ultralytics_ros2 \
   semantic_costmap_plugin semantic_mask_generator \
   semantic_planning_experiments wheeltec_nav2 largemodel
 colcon test --packages-select \
+  ultralytics_ros2 \
   semantic_costmap_plugin semantic_mask_generator \
   semantic_planning_experiments
 colcon test-result \
@@ -101,7 +103,9 @@ colcon test-result \
 未知区、不降低既有致命障碍”的合并边界。动态生成包 20 项测试通过，其中
 17 项行为测试覆盖深度解码、像素投影、TF 数学、观测合并、时间衰减、风险
 半径缩放、标记 ID 档案映射和地图栅格化。
-规划器实验包 105 项测试通过，其中 102 项行为测试覆盖 Nav2 PGM 坐标转换、
+人员检测适配包 7 项消息契约测试通过，覆盖时间戳/frame、二维框几何、类别过滤、
+置信度阈值和无效输出拒绝。规划器实验包 114 项测试通过，其中 111 项行为测试
+覆盖 Nav2 PGM 坐标转换、
 OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、语义边界间距、
 实际风险值摘要、指标差值、输入哈希、可比较性校验、统计汇总、路径重复性检测
 和论文 manifest 安全展开及逐 trial 结果验收。
@@ -122,6 +126,18 @@ OccupancyGrid 往返转换、动态 mask 空间摘要、穿越距离/比例、�
 `95/1.8 m`、`65/0.8 m`、`60/0.8 m`、`85/1.0 m`。标准 COCO 模型通常只有
 `person`；其他对象需要仓储检测模型或标签适配器。标记 `101` 默认映射为
 `fragile_goods`，启用后直接使用 ArUco 位姿，不重复执行深度投影。
+
+人员检测节点已经与 Astra 彩色图话题对齐，并保留原始图像 stamp 和 frame：
+
+```bash
+ros2 launch ultralytics_ros2 yolo.launch.py \
+  model:=/home/wheeltec/wheeltec_ros2_innovation/src/ultralytics_ros2/model/yolo11n.pt \
+  device:=0
+```
+
+该 launch 只启动检测节点，不启动相机。默认订阅
+`/camera/color/image_raw`，只保留置信度不低于 0.5 的 `person`，发布
+`/detections`。模型权重不进入 Git，每个实验单元必须记录其 SHA-256。
 
 观测会按空间距离合并，保持 0.8 s 后在 1.2 s 内线性衰减。易碎品货区、固定
 装卸区等持久化区域仍由静态 mask 表达。
