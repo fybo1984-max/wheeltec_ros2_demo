@@ -14,6 +14,7 @@
 
 """Map loading and path metrics for semantic planning experiments."""
 
+import ast
 from dataclasses import dataclass
 import hashlib
 import math
@@ -136,6 +137,33 @@ def load_mask_grid(yaml_path: Path) -> MaskGrid:
         yaml_path=yaml_path,
         image_path=image_path,
     )
+
+
+def load_planner_footprint(yaml_path: Path) -> list[tuple[float, float]]:
+    """Load the global costmap footprint from a Nav2 parameter file."""
+    document = yaml.safe_load(yaml_path.read_text(encoding='utf-8'))
+    try:
+        value = document['global_costmap']['global_costmap'][
+            'ros__parameters'
+        ]['footprint']
+    except (KeyError, TypeError) as error:
+        raise ValueError('planner config has no global costmap footprint') from error
+    if isinstance(value, str):
+        try:
+            value = ast.literal_eval(value)
+        except (SyntaxError, ValueError) as error:
+            raise ValueError('planner footprint string is invalid') from error
+    if not isinstance(value, list) or len(value) < 3:
+        raise ValueError('planner footprint needs at least three vertices')
+    footprint = []
+    for vertex in value:
+        if not isinstance(vertex, list) or len(vertex) != 2:
+            raise ValueError('planner footprint vertices must be x/y pairs')
+        point = (float(vertex[0]), float(vertex[1]))
+        if not all(math.isfinite(item) for item in point):
+            raise ValueError('planner footprint vertices must be finite')
+        footprint.append(point)
+    return footprint
 
 
 def occupancy_data(mask: MaskGrid) -> list[int]:
@@ -288,6 +316,103 @@ def path_metrics(
     }
 
 
+def _point_polygon_distances(
+    points: np.ndarray,
+    polygon: np.ndarray,
+) -> np.ndarray:
+    """Return Euclidean distances from points to a simple polygon."""
+    inside = np.zeros(points.shape[0], dtype=bool)
+    minimum_squared = np.full(points.shape[0], math.inf, dtype=np.float64)
+    for start, end in zip(polygon, np.roll(polygon, -1, axis=0)):
+        edge = end - start
+        length_squared = float(np.dot(edge, edge))
+        if length_squared == 0.0:
+            raise ValueError('footprint contains a zero-length edge')
+        offset = points - start
+        fraction = np.clip((offset @ edge) / length_squared, 0.0, 1.0)
+        nearest = start + fraction[:, np.newaxis] * edge
+        squared = np.sum((points - nearest) ** 2, axis=1)
+        minimum_squared = np.minimum(minimum_squared, squared)
+        crosses = ((start[1] > points[:, 1]) != (end[1] > points[:, 1]))
+        intersection_x = (
+            (end[0] - start[0])
+            * (points[:, 1] - start[1])
+            / (end[1] - start[1] + np.finfo(float).eps)
+            + start[0]
+        )
+        inside ^= crosses & (points[:, 0] < intersection_x)
+    distances = np.sqrt(minimum_squared)
+    distances[inside] = 0.0
+    return distances
+
+
+def footprint_path_metrics(
+    poses: Sequence[tuple[float, float, float]],
+    footprint: Sequence[tuple[float, float]],
+    mask: MaskGrid,
+) -> dict:
+    """Measure conservative swept-footprint crossing and mask clearance."""
+    if len(poses) < 2:
+        raise ValueError('a footprint path needs at least two poses')
+    polygon = np.asarray(footprint, dtype=np.float64)
+    if polygon.ndim != 2 or polygon.shape[0] < 3 or polygon.shape[1] != 2:
+        raise ValueError('footprint needs at least three x/y vertices')
+    if not np.isfinite(polygon).all():
+        raise ValueError('footprint vertices must be finite')
+
+    semantic_centers = mask.occupied_centers()
+    path_length = 0.0
+    crossing_length = 0.0
+    minimum_clearance = math.inf
+    half_diagonal = mask.resolution / math.sqrt(2.0)
+
+    for start, end in zip(poses, poses[1:]):
+        dx = end[0] - start[0]
+        dy = end[1] - start[1]
+        length = math.hypot(dx, dy)
+        if length == 0.0:
+            continue
+        path_length += length
+        pieces = max(1, math.ceil(length / (mask.resolution * 0.5)))
+        piece_length = length / pieces
+        yaw_delta = math.atan2(
+            math.sin(end[2] - start[2]),
+            math.cos(end[2] - start[2]),
+        )
+        for index in range(pieces):
+            fraction = (index + 0.5) / pieces
+            x = start[0] + fraction * dx
+            y = start[1] + fraction * dy
+            yaw = start[2] + fraction * yaw_delta
+            if semantic_centers.size == 0:
+                continue
+            cosine = math.cos(yaw)
+            sine = math.sin(yaw)
+            offsets = semantic_centers - np.asarray([x, y])
+            local = np.column_stack((
+                cosine * offsets[:, 0] + sine * offsets[:, 1],
+                -sine * offsets[:, 0] + cosine * offsets[:, 1],
+            ))
+            clearance = max(
+                0.0,
+                float(np.min(_point_polygon_distances(local, polygon)))
+                - half_diagonal,
+            )
+            minimum_clearance = min(minimum_clearance, clearance)
+            if clearance == 0.0:
+                crossing_length += piece_length
+
+    return {
+        'footprint_semantic_crossing_length_m': crossing_length,
+        'footprint_semantic_crossing_ratio': (
+            crossing_length / path_length if path_length > 0.0 else 0.0
+        ),
+        'minimum_footprint_semantic_clearance_m': (
+            None if semantic_centers.size == 0 else minimum_clearance
+        ),
+    }
+
+
 def metric_delta(baseline: dict, semantic: dict) -> dict:
     """Return semantic-minus-baseline values for comparable metrics."""
     result = {}
@@ -296,6 +421,9 @@ def metric_delta(baseline: dict, semantic: dict) -> dict:
         'semantic_crossing_length_m',
         'semantic_crossing_ratio',
         'minimum_semantic_clearance_m',
+        'footprint_semantic_crossing_length_m',
+        'footprint_semantic_crossing_ratio',
+        'minimum_footprint_semantic_clearance_m',
     ):
         first = baseline.get(key)
         second = semantic.get(key)

@@ -18,8 +18,10 @@ import numpy as np
 import pytest
 
 from semantic_planning_experiments.metrics import (
+    footprint_path_metrics,
     MaskGrid,
     load_mask_grid,
+    load_planner_footprint,
     mask_geometry_summary,
     mask_grid_from_occupancy_data,
     metric_delta,
@@ -78,6 +80,38 @@ def test_path_metrics_distinguishes_crossing_and_detour(tmp_path: Path):
     assert crossing['minimum_semantic_clearance_m'] == 0.0
     assert detour['semantic_crossing_length_m'] == 0.0
     assert detour['minimum_semantic_clearance_m'] > 0.0
+
+
+def test_footprint_metrics_detect_body_overlap_outside_centerline(tmp_path: Path):
+    occupied = np.zeros((4, 4), dtype=bool)
+    occupied[1:3, 1:3] = True
+    mask = MaskGrid(occupied, 1.0, 0.0, 0.0, None, None)
+    poses = [(0.5, 0.75, 0.0), (3.5, 0.75, 0.0)]
+    footprint = [(-0.2, -0.4), (-0.2, 0.4), (0.2, 0.4), (0.2, -0.4)]
+
+    centerline = path_metrics([(0.5, 0.75), (3.5, 0.75)], mask)
+    swept = footprint_path_metrics(poses, footprint, mask)
+
+    assert centerline['semantic_crossing_length_m'] == 0.0
+    assert swept['footprint_semantic_crossing_length_m'] > 0.0
+    assert swept['minimum_footprint_semantic_clearance_m'] == 0.0
+
+
+def test_load_planner_footprint_reads_nav2_parameter(tmp_path: Path):
+    planner = tmp_path / 'planner.yaml'
+    planner.write_text(
+        'global_costmap:\n'
+        '  global_costmap:\n'
+        '    ros__parameters:\n'
+        '      footprint: "[[-0.1, -0.2], [0.3, -0.2], [0.3, 0.2]]"\n',
+        encoding='utf-8',
+    )
+
+    assert load_planner_footprint(planner) == [
+        (-0.1, -0.2),
+        (0.3, -0.2),
+        (0.3, 0.2),
+    ]
 
 
 def test_occupancy_data_flips_image_rows_into_ros_grid_order(tmp_path: Path):

@@ -35,7 +35,9 @@ from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 
 from semantic_planning_experiments.metrics import (
+    footprint_path_metrics,
     load_mask_grid,
+    load_planner_footprint,
     mask_geometry_summary,
     mask_grid_from_occupancy_data,
     metric_delta,
@@ -76,6 +78,10 @@ class SemanticPlanningAB(Node):
         self.declare_parameter('synthetic_source_config_path', '')
         self.declare_parameter('recorded_bag_path', '')
         self.declare_parameter('recorded_unit_id', '')
+        self.declare_parameter(
+            'recorded_playback_start_offset_seconds',
+            0.0,
+        )
         self.declare_parameter(
             'producer_detection_active_duration_sec',
             -1.0,
@@ -390,13 +396,28 @@ class SemanticPlanningAB(Node):
                 f'planner returned action status {wrapped.status}'
             )
 
-        points = [
-            (pose.pose.position.x, pose.pose.position.y)
-            for pose in wrapped.result.path.poses
-        ]
+        poses = []
+        for stamped in wrapped.result.path.poses:
+            orientation = stamped.pose.orientation
+            yaw = math.atan2(
+                2.0 * (
+                    orientation.w * orientation.z
+                    + orientation.x * orientation.y
+                ),
+                1.0 - 2.0 * (
+                    orientation.y ** 2 + orientation.z ** 2
+                ),
+            )
+            poses.append((
+                stamped.pose.position.x,
+                stamped.pose.position.y,
+                yaw,
+            ))
+        points = [(pose[0], pose[1]) for pose in poses]
         planning_time = wrapped.result.planning_time
         return {
             'points': points,
+            'poses': poses,
             'planning_time_s': (
                 float(planning_time.sec)
                 + float(planning_time.nanosec) * 1.0e-9
@@ -420,6 +441,11 @@ class SemanticPlanningAB(Node):
         time.sleep(float(self.get_parameter('settle_seconds').value))
         planned = self._compute_path()
         metrics = path_metrics(planned['points'], mask)
+        metrics.update(footprint_path_metrics(
+            planned['poses'],
+            self._footprint,
+            mask,
+        ))
         metrics['planning_time_s'] = planned['planning_time_s']
         return {
             'mask_layer_enabled': enabled,
@@ -517,6 +543,7 @@ class SemanticPlanningAB(Node):
         planner_config_path = Path(
             planner_config_value
         ).expanduser().resolve()
+        self._footprint = load_planner_footprint(planner_config_path)
         producer_config_path = (
             Path(producer_config_value).expanduser().resolve()
             if producer_config_value else None
@@ -673,6 +700,7 @@ class SemanticPlanningAB(Node):
                 ),
                 'planner_config_path': str(planner_config_path),
                 'planner_config_sha256': sha256_file(planner_config_path),
+                'robot_footprint': [list(point) for point in self._footprint],
                 'planner_id': self.get_parameter('planner_id').value,
                 'semantic_layer_parameters': {
                     'cost_mode': cost_mode,
@@ -701,6 +729,12 @@ class SemanticPlanningAB(Node):
                     if synthetic_config_path else None
                 ),
                 'recorded_unit_id': recorded_unit_id or None,
+                'recorded_playback_start_offset_seconds': (
+                    float(self.get_parameter(
+                        'recorded_playback_start_offset_seconds'
+                    ).value)
+                    if recorded_unit_id else None
+                ),
                 'recorded_bag': recorded_bag,
                 'mask_producer_runtime_parameters': (
                     producer_runtime_parameters

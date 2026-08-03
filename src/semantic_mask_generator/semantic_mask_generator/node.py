@@ -159,7 +159,7 @@ class SemanticMaskNode(Node):
         self.declare_parameter('minimum_depth_m', 0.3)
         self.declare_parameter('maximum_depth_m', 8.0)
         self.declare_parameter('depth_window_radius_px', 3)
-        self.declare_parameter('bbox_sample_y_fraction', 0.75)
+        self.declare_parameter('bbox_sample_y_fraction', 0.5)
         self.declare_parameter('maximum_sync_delta_sec', 0.15)
         self.declare_parameter('tf_timeout_sec', 0.2)
         self.declare_parameter('observation_hold_sec', 0.8)

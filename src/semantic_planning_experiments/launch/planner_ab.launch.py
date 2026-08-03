@@ -89,6 +89,9 @@ def generate_launch_description():
     )
     recorded_bag_path = LaunchConfiguration('recorded_bag_path')
     recorded_unit_id = LaunchConfiguration('recorded_unit_id')
+    recorded_playback_offset = LaunchConfiguration(
+        'recorded_playback_start_offset_seconds'
+    )
     producer_detection_active_duration = LaunchConfiguration(
         'producer_detection_active_duration_sec'
     )
@@ -221,6 +224,8 @@ def generate_launch_description():
             'synthetic_source_config_path': synthetic_source_config,
             'recorded_bag_path': recorded_bag_path,
             'recorded_unit_id': recorded_unit_id,
+            'recorded_playback_start_offset_seconds':
+                recorded_playback_offset,
             'producer_detection_active_duration_sec':
                 producer_detection_active_duration,
             'producer_observation_hold_sec': producer_observation_hold,
@@ -310,6 +315,11 @@ def generate_launch_description():
             'recorded_unit_id',
             default_value='',
             description='Optional independent archive unit id.',
+        ),
+        DeclareLaunchArgument(
+            'recorded_playback_start_offset_seconds',
+            default_value='0.0',
+            description='Recorded bag start offset used for this report.',
         ),
         DeclareLaunchArgument(
             'producer_detection_active_duration_sec',

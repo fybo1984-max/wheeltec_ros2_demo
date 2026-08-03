@@ -61,6 +61,9 @@ def _start_recorded_pipeline(context, experiment_share, generator_config):
     runner_delay = float(
         LaunchConfiguration('runner_delay_seconds').perform(context)
     )
+    playback_offset = float(
+        LaunchConfiguration('playback_start_offset_seconds').perform(context)
+    )
     replay = build_recorded_replay(
         bag_path,
         unit_id,
@@ -68,6 +71,7 @@ def _start_recorded_pipeline(context, experiment_share, generator_config):
         playback_rate,
         playback_delay,
         runner_delay,
+        playback_offset,
     )
     planner_launch = os.path.join(
         experiment_share,
@@ -102,8 +106,17 @@ def _start_recorded_pipeline(context, experiment_share, generator_config):
             },
         ],
     )
+    actions = [generator]
+    playback_delay = replay['playback_start_delay_seconds']
+    static_tf_command = replay['static_tf_command_argv']
+    if static_tf_command is not None:
+        actions.append(TimerAction(
+            period=playback_delay,
+            actions=[ExecuteProcess(cmd=static_tf_command, output='screen')],
+        ))
+        playback_delay += 1.0
     playback = TimerAction(
-        period=replay['playback_start_delay_seconds'],
+        period=playback_delay,
         actions=[ExecuteProcess(cmd=replay['command_argv'], output='screen')],
     )
     planner = IncludeLaunchDescription(
@@ -117,6 +130,7 @@ def _start_recorded_pipeline(context, experiment_share, generator_config):
             'synthetic_source_config': '',
             'recorded_bag_path': str(bag_path.expanduser().resolve()),
             'recorded_unit_id': unit_id,
+            'recorded_playback_start_offset_seconds': str(playback_offset),
             'producer_observation_hold_sec': LaunchConfiguration(
                 'observation_hold_sec'
             ),
@@ -145,7 +159,8 @@ def _start_recorded_pipeline(context, experiment_share, generator_config):
             'runner_delay_seconds': str(replay['runner_delay_seconds']),
         }.items(),
     )
-    return [generator, playback, planner]
+    actions.extend([playback, planner])
+    return actions
 
 
 def generate_launch_description():
@@ -180,6 +195,10 @@ def generate_launch_description():
             default_value='/tmp/semantic_recorded_rgbd_ab.json',
         ),
         DeclareLaunchArgument('playback_rate', default_value='1.0'),
+        DeclareLaunchArgument(
+            'playback_start_offset_seconds',
+            default_value='0.0',
+        ),
         DeclareLaunchArgument(
             'playback_start_delay_seconds',
             default_value='2.0',

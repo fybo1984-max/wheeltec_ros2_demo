@@ -39,6 +39,7 @@ def build_recorded_replay(
     playback_rate: float,
     playback_start_delay_seconds: float,
     runner_delay_seconds: float,
+    playback_start_offset_seconds: float = 0.0,
 ) -> dict:
     """Build a validated `ros2 bag play` command for the recorded launch."""
     bag_path = bag_path.expanduser().resolve()
@@ -55,6 +56,7 @@ def build_recorded_replay(
         'playback_rate': playback_rate,
         'playback_start_delay_seconds': playback_start_delay_seconds,
         'runner_delay_seconds': runner_delay_seconds,
+        'playback_start_offset_seconds': playback_start_offset_seconds,
     }
     for name, value in numeric_values.items():
         if (
@@ -67,9 +69,38 @@ def build_recorded_replay(
         raise ValueError('playback_rate must be positive')
     if playback_start_delay_seconds < 0.0:
         raise ValueError('playback_start_delay_seconds must be nonnegative')
+    if playback_start_offset_seconds < 0.0:
+        raise ValueError('playback_start_offset_seconds must be nonnegative')
     if runner_delay_seconds <= playback_start_delay_seconds:
         raise ValueError('runner_delay_seconds must follow playback start')
     bag = inspect_recorded_bag(bag_path, RECORDED_RGBD_TOPICS)
+    command_argv = [
+        'ros2',
+        'bag',
+        'play',
+        str(bag_path),
+        '--rate',
+        str(float(playback_rate)),
+    ]
+    if playback_start_offset_seconds > 0.0:
+        command_argv.extend([
+            '--start-offset',
+            str(float(playback_start_offset_seconds)),
+        ])
+    command_argv.extend(['--topics', *RECORDED_RGBD_TOPICS])
+    static_tf_command_argv = None
+    if playback_start_offset_seconds > 0.0:
+        static_tf_command_argv = [
+            'ros2',
+            'bag',
+            'play',
+            str(bag_path),
+            '--topics',
+            '/tf_static',
+            '--disable-keyboard-controls',
+            '--wait-for-all-acked',
+            '1000',
+        ]
     return {
         'unit_id': unit_id,
         'bag': bag,
@@ -78,16 +109,11 @@ def build_recorded_replay(
             playback_start_delay_seconds
         ),
         'runner_delay_seconds': float(runner_delay_seconds),
-        'command_argv': [
-            'ros2',
-            'bag',
-            'play',
-            str(bag_path),
-            '--rate',
-            str(float(playback_rate)),
-            '--topics',
-            *RECORDED_RGBD_TOPICS,
-        ],
+        'playback_start_offset_seconds': float(
+            playback_start_offset_seconds
+        ),
+        'command_argv': command_argv,
+        'static_tf_command_argv': static_tf_command_argv,
         'safety_scope': {
             'controller_started': False,
             'velocity_commands_published': False,

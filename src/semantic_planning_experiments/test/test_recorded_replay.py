@@ -100,6 +100,7 @@ def test_replay_builds_exact_safe_command_from_verified_bag(tmp_path: Path):
         '--topics',
         *RECORDED_RGBD_TOPICS,
     ]
+    assert replay['static_tf_command_argv'] is None
     assert replay['bag']['topics'] == {
         topic: 2 for topic in RECORDED_RGBD_TOPICS
     }
@@ -124,6 +125,26 @@ def test_replay_rejects_missing_protocol_topic(tmp_path: Path):
 
     with pytest.raises(ValueError, match='required topics are missing'):
         build_recorded_replay(bag, 'near_001', workspace, 1.0, 2.0, 8.0)
+
+
+def test_replay_records_nonzero_start_offset(tmp_path: Path):
+    workspace = tmp_path / 'repo'
+    workspace.mkdir()
+    bag = _bag(tmp_path)
+
+    replay = build_recorded_replay(
+        bag,
+        'person_near_001',
+        workspace,
+        playback_rate=1.0,
+        playback_start_delay_seconds=2.0,
+        runner_delay_seconds=8.0,
+        playback_start_offset_seconds=20.0,
+    )
+
+    assert replay['playback_start_offset_seconds'] == 20.0
+    assert replay['command_argv'][6:8] == ['--start-offset', '20.0']
+    assert replay['static_tf_command_argv'][4:6] == ['--topics', '/tf_static']
 
 
 @pytest.mark.parametrize(
@@ -153,4 +174,21 @@ def test_replay_rejects_unsafe_timing(
             rate,
             playback_delay,
             runner_delay,
+        )
+
+
+def test_replay_rejects_negative_start_offset(tmp_path: Path):
+    workspace = tmp_path / 'repo'
+    workspace.mkdir()
+    bag = _bag(tmp_path)
+
+    with pytest.raises(ValueError, match='playback_start_offset_seconds'):
+        build_recorded_replay(
+            bag,
+            'near_001',
+            workspace,
+            1.0,
+            2.0,
+            8.0,
+            -0.1,
         )

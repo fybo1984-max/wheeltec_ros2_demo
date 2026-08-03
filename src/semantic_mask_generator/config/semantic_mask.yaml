@@ -12,7 +12,7 @@ semantic_mask_generator:
     minimum_depth_m: 0.3
     maximum_depth_m: 8.0
     depth_window_radius_px: 3
-    bbox_sample_y_fraction: 0.75
+    bbox_sample_y_fraction: 0.5
     maximum_sync_delta_sec: 0.15
     tf_timeout_sec: 0.2
     observation_hold_sec: 0.8

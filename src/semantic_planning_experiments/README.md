@@ -319,6 +319,7 @@ ros2 launch semantic_planning_experiments recorded_rgbd_planner_ab.launch.py \
   bag_path:=/tmp/semantic_recorded_rgbd_archive_v1/bags/person_near_001 \
   unit_id:=person_near_001 \
   domain_id:=76 \
+  playback_start_offset_seconds:=0.0 \
   output_path:=/tmp/semantic_recorded_rgbd_results/person_near_001.json
 ```
 
@@ -329,6 +330,12 @@ report includes the independent unit id, recursive bag inventory, actual topic
 counts, mask geometry, both paths, risk-zone crossing, minimum clearance, path
 length, and planning time. It starts no synthetic source; the recorded
 `/detections` topic is the semantic detector input.
+
+For an engineering bag that contains setup motion before a stable observation,
+`playback_start_offset_seconds` selects a declared stable window without
+rewriting the raw bag. The launch replays `/tf_static` from the beginning before
+starting the offset stream, and records the offset in the JSON report. Formal
+units should still record only their assigned observation interval.
 
 Validate and expand the paper pilot manifest without executing any launch:
 
