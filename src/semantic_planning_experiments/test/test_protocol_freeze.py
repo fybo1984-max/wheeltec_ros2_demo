@@ -185,6 +185,13 @@ def test_confirmatory_protocol_requires_multiplicity_control(tmp_path: Path):
 
 def test_freeze_records_stable_observation_requirements(tmp_path: Path):
     protocol = _protocol()
+    protocol['data_collection']['required_metadata'].extend([
+        'measured_person_pose_in_map',
+        'assigned_distance_stratum',
+        'measured_camera_to_person_distance_m',
+        'recording_start_and_end_utc',
+        'observation_conditions',
+    ])
     protocol['data_collection']['requirements'] = {
         'recording_duration_s': {'minimum': 10, 'maximum': 15},
         'measured_person_pose': {
@@ -195,6 +202,10 @@ def test_freeze_records_stable_observation_requirements(tmp_path: Path):
         'observation': {
             'person_stable_before_recording': True,
             'setup_motion_recorded': False,
+        },
+        'person_distance_strata_m': {
+            'near': {'target': 1.2, 'tolerance': 0.1},
+            'far': {'target': 3.0, 'tolerance': 0.1},
         },
     }
     repo, protocol_path = _repository(tmp_path, protocol)
@@ -209,10 +220,21 @@ def test_freeze_records_stable_observation_requirements(tmp_path: Path):
     assert requirements['measured_person_pose'][
         'maximum_uncertainty_m'
     ] == 0.05
+    assert requirements['person_distance_strata_m']['near'] == {
+        'target': 1.2,
+        'tolerance': 0.1,
+    }
 
 
 def test_freeze_rejects_reversed_recording_duration(tmp_path: Path):
     protocol = _protocol()
+    protocol['data_collection']['required_metadata'].extend([
+        'measured_person_pose_in_map',
+        'assigned_distance_stratum',
+        'measured_camera_to_person_distance_m',
+        'recording_start_and_end_utc',
+        'observation_conditions',
+    ])
     protocol['data_collection']['requirements'] = {
         'recording_duration_s': {'minimum': 15, 'maximum': 10},
         'measured_person_pose': {
@@ -223,6 +245,10 @@ def test_freeze_rejects_reversed_recording_duration(tmp_path: Path):
         'observation': {
             'person_stable_before_recording': True,
             'setup_motion_recorded': False,
+        },
+        'person_distance_strata_m': {
+            'near': {'target': 1.2, 'tolerance': 0.1},
+            'far': {'target': 3.0, 'tolerance': 0.1},
         },
     }
     repo, protocol_path = _repository(tmp_path, protocol)

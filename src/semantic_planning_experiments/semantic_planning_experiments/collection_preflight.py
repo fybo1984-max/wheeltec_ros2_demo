@@ -49,6 +49,7 @@ def _is_velocity_topic(topic: str) -> bool:
 def _metadata_draft(
     required_metadata: list[str],
     requirements: dict | None = None,
+    stratum: str | None = None,
 ) -> dict:
     pose_requirement = (requirements or {}).get('measured_person_pose', {})
     pose_template = {
@@ -76,6 +77,8 @@ def _metadata_draft(
             'person_stable_before_recording': None,
             'setup_motion_recorded': None,
         },
+        'assigned_distance_stratum': stratum,
+        'measured_camera_to_person_distance_m': None,
     }
     return {
         name: templates.get(name)
@@ -161,11 +164,18 @@ def build_collection_plan(
     ]
     if requirements is not None:
         duration = requirements['recording_duration_s']
+        distance = requirements['person_distance_strata_m'][unit['stratum']]
         actions.insert(
             2,
             'Record only after the person is stable, with no setup motion, '
             f'for {duration["minimum"]:.1f} to '
             f'{duration["maximum"]:.1f} seconds.',
+        )
+        actions.insert(
+            3,
+            f'Measure camera-to-person distance for {unit["stratum"]}: '
+            f'{distance["target"]:.2f} +/- '
+            f'{distance["tolerance"]:.2f} m.',
         )
     return {
         'schema_version': 1,
@@ -217,6 +227,7 @@ def build_collection_plan(
         'metadata_draft': _metadata_draft(
             validated['required_metadata'],
             requirements,
+            unit['stratum'],
         ),
         'operator_actions_required': actions,
     }

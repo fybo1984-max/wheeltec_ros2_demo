@@ -113,6 +113,8 @@ data_collection:
     - detector_model_sha256
     - map_yaml_sha256
     - measured_person_pose_in_map
+    - assigned_distance_stratum
+    - measured_camera_to_person_distance_m
     - recording_start_and_end_utc
     - observation_conditions
   requirements:
@@ -126,6 +128,16 @@ data_collection:
     observation:
       person_stable_before_recording: true
       setup_motion_recorded: false
+    person_distance_strata_m:
+      person_near:
+        target: 1.2
+        tolerance: 0.1
+      person_nominal:
+        target: 2.0
+        tolerance: 0.1
+      person_far:
+        target: 3.0
+        tolerance: 0.1
   storage_policy: outside_repository
 
 collection_scope:

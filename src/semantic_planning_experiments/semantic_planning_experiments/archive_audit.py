@@ -449,6 +449,7 @@ def _validate_unit_metadata(
     path: Path,
     required: list[str],
     requirements: dict | None = None,
+    expected_stratum: str | None = None,
 ) -> dict:
     if not path.is_file():
         raise ValueError('unit metadata JSON is missing')
@@ -556,6 +557,32 @@ def _validate_unit_metadata(
                 raise ValueError(
                     'observation_conditions violate the protocol'
                 )
+        elif name == 'assigned_distance_stratum':
+            if value != expected_stratum:
+                raise ValueError(
+                    'assigned_distance_stratum does not match archive unit'
+                )
+        elif name == 'measured_camera_to_person_distance_m':
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value <= 0.0
+            ):
+                raise ValueError(
+                    'measured_camera_to_person_distance_m is invalid'
+                )
+            strata = (requirements or {}).get('person_distance_strata_m')
+            if strata is not None:
+                if expected_stratum not in strata:
+                    raise ValueError('archive distance stratum is invalid')
+                distance = strata[expected_stratum]
+                deviation = abs(value - distance['target'])
+                if deviation > distance['tolerance'] + 1.0e-12:
+                    raise ValueError(
+                        'measured camera-to-person distance violates '
+                        'the assigned stratum'
+                    )
         elif value is None or value == '' or value == [] or value == {}:
             raise ValueError(f'unit metadata {name} must not be empty')
     duration_requirement = (requirements or {}).get('recording_duration_s')
@@ -592,6 +619,7 @@ def _audit_collected_unit(
         unit['metadata_path'],
         required_metadata,
         requirements,
+        unit.get('stratum'),
     )
     duration_requirement = (requirements or {}).get('recording_duration_s')
     if duration_requirement is not None:

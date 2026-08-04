@@ -116,7 +116,11 @@ def test_plan_includes_frozen_stable_observation_requirements(
     monkeypatch,
 ):
     workspace, index_path, validated, lock = _inputs(tmp_path, monkeypatch)
-    validated['required_metadata'].append('observation_conditions')
+    validated['required_metadata'].extend([
+        'observation_conditions',
+        'assigned_distance_stratum',
+        'measured_camera_to_person_distance_m',
+    ])
     requirements = {
         'recording_duration_s': {'minimum': 10.0, 'maximum': 15.0},
         'measured_person_pose': {
@@ -127,6 +131,9 @@ def test_plan_includes_frozen_stable_observation_requirements(
         'observation': {
             'person_stable_before_recording': True,
             'setup_motion_recorded': False,
+        },
+        'person_distance_strata_m': {
+            'near': {'target': 1.2, 'tolerance': 0.1},
         },
     }
     lock['protocol']['data_collection'] = {
@@ -148,7 +155,14 @@ def test_plan_includes_frozen_stable_observation_requirements(
         'person_stable_before_recording': None,
         'setup_motion_recorded': None,
     }
+    assert plan['metadata_draft']['assigned_distance_stratum'] == 'near'
+    assert plan['metadata_draft'][
+        'measured_camera_to_person_distance_m'
+    ] is None
     assert any('10.0 to 15.0 seconds' in action for action in (
+        plan['operator_actions_required']
+    ))
+    assert any('1.20 +/- 0.10 m' in action for action in (
         plan['operator_actions_required']
     ))
 

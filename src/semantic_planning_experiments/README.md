@@ -267,8 +267,10 @@ The v2 frozen requirements allow only a 10.0--15.0 second observation after
 the person is stationary. Unit metadata must record the map-frame measurement
 method and uncertainty at or below 0.05 m, confirm that the pose was measured
 before recording, and confirm that no setup motion was captured. Registration
-rejects a unit that violates any of these requirements. The existing v1 archive
-remains an engineering record and must not receive new formal units.
+also binds each unit to a measured camera-to-person range: near 1.2 +/- 0.1 m,
+nominal 2.0 +/- 0.1 m, or far 3.0 +/- 0.1 m. It rejects a unit that violates
+any of these requirements or declares the wrong stratum. The existing v1
+archive remains an engineering record and must not receive new formal units.
 
 After the approved camera and detector are running, but before recording a
 unit, validate the live input contract:

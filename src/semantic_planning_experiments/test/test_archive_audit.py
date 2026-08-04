@@ -50,6 +50,10 @@ _STABLE_REQUIREMENTS = {
         'person_stable_before_recording': True,
         'setup_motion_recorded': False,
     },
+    'person_distance_strata_m': {
+        'near': {'target': 1.2, 'tolerance': 0.1},
+        'far': {'target': 3.0, 'tolerance': 0.1},
+    },
 }
 
 
@@ -247,6 +251,8 @@ def _stable_metadata(path: Path) -> dict:
             'person_stable_before_recording': True,
             'setup_motion_recorded': False,
         },
+        'assigned_distance_stratum': 'near',
+        'measured_camera_to_person_distance_m': 1.2,
     }
     path.write_text(json.dumps(metadata), encoding='utf-8')
     return metadata
@@ -260,6 +266,7 @@ def test_stable_observation_metadata_meets_frozen_requirements(tmp_path: Path):
         metadata_path,
         list(_stable_metadata_fields()),
         _STABLE_REQUIREMENTS,
+        'near',
     )
 
     assert result['values']['measured_person_pose_in_map'][
@@ -277,6 +284,7 @@ def test_rosbag_duration_must_meet_stable_requirements(tmp_path: Path):
         'bag_relative': 'bags/near_001',
         'metadata_path': metadata_path,
         'metadata_relative': 'metadata/near_001.json',
+        'stratum': 'near',
     }
 
     passed = _audit_collected_unit(
@@ -310,6 +318,8 @@ def _stable_metadata_fields() -> tuple[str, ...]:
         'measured_person_pose_in_map',
         'recording_start_and_end_utc',
         'observation_conditions',
+        'assigned_distance_stratum',
+        'measured_camera_to_person_distance_m',
     )
 
 
@@ -353,6 +363,42 @@ def test_stable_observation_metadata_rejects_protocol_deviation(
             metadata_path,
             list(_stable_metadata_fields()),
             _STABLE_REQUIREMENTS,
+            'near',
+        )
+
+
+@pytest.mark.parametrize(
+    'field, value, message',
+    [
+        (
+            'assigned_distance_stratum',
+            'far',
+            'does not match archive unit',
+        ),
+        (
+            'measured_camera_to_person_distance_m',
+            1.31,
+            'violates the assigned stratum',
+        ),
+    ],
+)
+def test_distance_metadata_rejects_wrong_stratum_or_range(
+    tmp_path: Path,
+    field: str,
+    value,
+    message: str,
+):
+    metadata_path = tmp_path / 'unit.json'
+    metadata = _stable_metadata(metadata_path)
+    metadata[field] = value
+    metadata_path.write_text(json.dumps(metadata), encoding='utf-8')
+
+    with pytest.raises(ValueError, match=message):
+        _validate_unit_metadata(
+            metadata_path,
+            list(_stable_metadata_fields()),
+            _STABLE_REQUIREMENTS,
+            'near',
         )
 
 

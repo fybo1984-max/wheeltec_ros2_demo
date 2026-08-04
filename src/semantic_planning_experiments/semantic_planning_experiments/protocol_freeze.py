@@ -270,6 +270,30 @@ def _validate_collection_requirements(value) -> dict | None:
         raise ValueError('person must be stable before recording')
     if observation.get('setup_motion_recorded') is not False:
         raise ValueError('setup motion must not be recorded')
+    strata_raw = _mapping(
+        requirements.get('person_distance_strata_m'),
+        'data_collection.requirements.person_distance_strata_m',
+    )
+    strata = {}
+    for name, values_raw in strata_raw.items():
+        if not isinstance(name, str) or not _ID_PATTERN.fullmatch(name):
+            raise ValueError('person distance stratum name is invalid')
+        values = _mapping(
+            values_raw,
+            f'person_distance_strata_m.{name}',
+        )
+        strata[name] = {
+            'target': _positive_finite(
+                values.get('target'),
+                f'person distance stratum {name} target',
+            ),
+            'tolerance': _positive_finite(
+                values.get('tolerance'),
+                f'person distance stratum {name} tolerance',
+            ),
+        }
+    if not strata:
+        raise ValueError('person distance strata must not be empty')
     return {
         'recording_duration_s': {
             'minimum': minimum,
@@ -284,6 +308,7 @@ def _validate_collection_requirements(value) -> dict | None:
             'person_stable_before_recording': True,
             'setup_motion_recorded': False,
         },
+        'person_distance_strata_m': strata,
     }
 
 
@@ -387,6 +412,7 @@ def load_protocol(path: Path, workspace_root: Path) -> dict:
             'experimental_unit.pseudoreplication_rule',
         ),
     }
+    sample_size = _validate_sample_size(protocol.get('sample_size'))
     collection = _mapping(protocol.get('data_collection'), 'data_collection')
     data_collection = {
         'required_topics': _string_list(
@@ -403,6 +429,28 @@ def load_protocol(path: Path, workspace_root: Path) -> dict:
         collection.get('requirements')
     )
     if requirements is not None:
+        required_requirement_metadata = {
+            'measured_person_pose_in_map',
+            'assigned_distance_stratum',
+            'measured_camera_to_person_distance_m',
+            'recording_start_and_end_utc',
+            'observation_conditions',
+        }
+        missing_requirement_metadata = sorted(
+            required_requirement_metadata
+            - set(data_collection['required_metadata'])
+        )
+        if missing_requirement_metadata:
+            raise ValueError(
+                'required_metadata is missing collection requirement '
+                f'fields: {missing_requirement_metadata}'
+            )
+        if set(requirements['person_distance_strata_m']) != set(
+            sample_size['allocation']
+        ):
+            raise ValueError(
+                'person distance strata must match sample allocation'
+            )
         data_collection['requirements'] = requirements
     if data_collection['storage_policy'] != 'outside_repository':
         raise ValueError(
@@ -434,7 +482,7 @@ def load_protocol(path: Path, workspace_root: Path) -> dict:
         'methods': methods,
         'experimental_unit': experimental_unit,
         'endpoints': _validate_endpoints(protocol.get('endpoints')),
-        'sample_size': _validate_sample_size(protocol.get('sample_size')),
+        'sample_size': sample_size,
         'statistics': _validate_statistics(
             protocol.get('statistics'),
             confirmatory,
