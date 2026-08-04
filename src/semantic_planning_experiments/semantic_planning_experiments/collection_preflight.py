@@ -46,20 +46,35 @@ def _is_velocity_topic(topic: str) -> bool:
     return any(part.startswith('cmd_vel') for part in topic.split('/'))
 
 
-def _metadata_draft(required_metadata: list[str]) -> dict:
+def _metadata_draft(
+    required_metadata: list[str],
+    requirements: dict | None = None,
+) -> dict:
+    pose_requirement = (requirements or {}).get('measured_person_pose', {})
+    pose_template = {
+        'x': None,
+        'y': None,
+        'frame_id': pose_requirement.get('frame_id', 'map'),
+    }
+    if requirements is not None:
+        pose_template.update({
+            'measurement_method': '',
+            'uncertainty_m': None,
+            'measured_before_recording': None,
+        })
     templates = {
         'camera_model_and_serial': '',
         'detector_runtime_version': '',
         'detector_model_sha256': '',
         'map_yaml_sha256': '',
-        'measured_person_pose_in_map': {
-            'x': None,
-            'y': None,
-            'frame_id': 'map',
-        },
+        'measured_person_pose_in_map': pose_template,
         'recording_start_and_end_utc': {
             'start_utc': '',
             'end_utc': '',
+        },
+        'observation_conditions': {
+            'person_stable_before_recording': None,
+            'setup_motion_recorded': None,
         },
     }
     return {
@@ -135,6 +150,23 @@ def build_collection_plan(
             f'{disk.free} < {required_free_bytes} bytes'
         )
     required_topics = list(validated['required_topics'])
+    requirements = lock['protocol'].get('data_collection', {}).get(
+        'requirements'
+    )
+    actions = [
+        'Notify the operator before starting the physical camera.',
+        'Confirm the base and controller remain disabled.',
+        'Fill every metadata draft field with measured values.',
+        'Request separate authorization before executing any command.',
+    ]
+    if requirements is not None:
+        duration = requirements['recording_duration_s']
+        actions.insert(
+            2,
+            'Record only after the person is stable, with no setup motion, '
+            f'for {duration["minimum"]:.1f} to '
+            f'{duration["maximum"]:.1f} seconds.',
+        )
     return {
         'schema_version': 1,
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
@@ -173,6 +205,7 @@ def build_collection_plan(
             'velocity_commands_allowed': False,
         },
         'required_topics': required_topics,
+        'collection_requirements': requirements,
         'record_command_argv': [
             'ros2',
             'bag',
@@ -182,14 +215,10 @@ def build_collection_plan(
             *required_topics,
         ],
         'metadata_draft': _metadata_draft(
-            validated['required_metadata']
+            validated['required_metadata'],
+            requirements,
         ),
-        'operator_actions_required': [
-            'Notify the operator before starting the physical camera.',
-            'Confirm the base and controller remain disabled.',
-            'Fill every metadata draft field with measured values.',
-            'Request separate authorization before executing any command.',
-        ],
+        'operator_actions_required': actions,
     }
 
 

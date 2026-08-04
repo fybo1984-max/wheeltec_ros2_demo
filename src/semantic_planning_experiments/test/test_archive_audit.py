@@ -21,6 +21,8 @@ import pytest
 import yaml
 
 from semantic_planning_experiments.archive_audit import audit_archive_index
+from semantic_planning_experiments.archive_audit import _audit_collected_unit
+from semantic_planning_experiments.archive_audit import _validate_unit_metadata
 from semantic_planning_experiments.archive_audit import (
     initialize_archive_index,
 )
@@ -36,6 +38,19 @@ _METADATA = [
     'measured_person_pose_in_map',
     'recording_start_and_end_utc',
 ]
+
+_STABLE_REQUIREMENTS = {
+    'recording_duration_s': {'minimum': 10.0, 'maximum': 15.0},
+    'measured_person_pose': {
+        'frame_id': 'map',
+        'maximum_uncertainty_m': 0.05,
+        'measured_before_recording': True,
+    },
+    'observation': {
+        'person_stable_before_recording': True,
+        'setup_motion_recorded': False,
+    },
+}
 
 
 def _protocol() -> dict:
@@ -182,6 +197,7 @@ def _valid_unit_artifacts(index_path: Path, unit_id: str) -> None:
         yaml.safe_dump({
             'rosbag2_bagfile_information': {
                 'storage_identifier': 'sqlite3',
+                'duration': {'nanoseconds': 12_000_000_000},
                 'topics_with_message_count': topics,
                 'relative_file_paths': ['recording_0.db3'],
             },
@@ -211,6 +227,133 @@ def _mark_collected(index_path: Path, unit_ids: list[str]) -> None:
         if unit['unit_id'] in unit_ids:
             unit['status'] = 'collected'
     _write_index(index_path, index)
+
+
+def _stable_metadata(path: Path) -> dict:
+    metadata = {
+        'measured_person_pose_in_map': {
+            'x': 1.0,
+            'y': 2.0,
+            'frame_id': 'map',
+            'measurement_method': 'floor_marker_center',
+            'uncertainty_m': 0.03,
+            'measured_before_recording': True,
+        },
+        'recording_start_and_end_utc': {
+            'start_utc': '2026-01-01T00:00:00Z',
+            'end_utc': '2026-01-01T00:00:12Z',
+        },
+        'observation_conditions': {
+            'person_stable_before_recording': True,
+            'setup_motion_recorded': False,
+        },
+    }
+    path.write_text(json.dumps(metadata), encoding='utf-8')
+    return metadata
+
+
+def test_stable_observation_metadata_meets_frozen_requirements(tmp_path: Path):
+    metadata_path = tmp_path / 'unit.json'
+    _stable_metadata(metadata_path)
+
+    result = _validate_unit_metadata(
+        metadata_path,
+        list(_stable_metadata_fields()),
+        _STABLE_REQUIREMENTS,
+    )
+
+    assert result['values']['measured_person_pose_in_map'][
+        'uncertainty_m'
+    ] == 0.03
+
+
+def test_rosbag_duration_must_meet_stable_requirements(tmp_path: Path):
+    _, _, index_path = _archive(tmp_path)
+    _valid_unit_artifacts(index_path, 'near_001')
+    metadata_path = index_path.parent / 'metadata/near_001.json'
+    _stable_metadata(metadata_path)
+    unit = {
+        'bag_path': index_path.parent / 'bags/near_001',
+        'bag_relative': 'bags/near_001',
+        'metadata_path': metadata_path,
+        'metadata_relative': 'metadata/near_001.json',
+    }
+
+    passed = _audit_collected_unit(
+        unit,
+        _TOPICS,
+        list(_stable_metadata_fields()),
+        _STABLE_REQUIREMENTS,
+    )
+    assert passed['bag']['duration_s'] == 12.0
+
+    bag_metadata_path = unit['bag_path'] / 'metadata.yaml'
+    bag_metadata = yaml.safe_load(bag_metadata_path.read_text())
+    bag_metadata['rosbag2_bagfile_information']['duration'][
+        'nanoseconds'
+    ] = 16_000_000_000
+    bag_metadata_path.write_text(
+        yaml.safe_dump(bag_metadata),
+        encoding='utf-8',
+    )
+    with pytest.raises(ValueError, match='Rosbag duration violates'):
+        _audit_collected_unit(
+            unit,
+            _TOPICS,
+            list(_stable_metadata_fields()),
+            _STABLE_REQUIREMENTS,
+        )
+
+
+def _stable_metadata_fields() -> tuple[str, ...]:
+    return (
+        'measured_person_pose_in_map',
+        'recording_start_and_end_utc',
+        'observation_conditions',
+    )
+
+
+@pytest.mark.parametrize(
+    'section, field, value, message',
+    [
+        (
+            'recording_start_and_end_utc',
+            'end_utc',
+            '2026-01-01T00:00:16Z',
+            'recording duration violates',
+        ),
+        (
+            'measured_person_pose_in_map',
+            'uncertainty_m',
+            0.06,
+            'uncertainty_m exceeds',
+        ),
+        (
+            'observation_conditions',
+            'setup_motion_recorded',
+            True,
+            'observation_conditions violate',
+        ),
+    ],
+)
+def test_stable_observation_metadata_rejects_protocol_deviation(
+    tmp_path: Path,
+    section: str,
+    field: str,
+    value,
+    message: str,
+):
+    metadata_path = tmp_path / 'unit.json'
+    metadata = _stable_metadata(metadata_path)
+    metadata[section][field] = value
+    metadata_path.write_text(json.dumps(metadata), encoding='utf-8')
+
+    with pytest.raises(ValueError, match=message):
+        _validate_unit_metadata(
+            metadata_path,
+            list(_stable_metadata_fields()),
+            _STABLE_REQUIREMENTS,
+        )
 
 
 def test_initialize_creates_all_units_and_refuses_overwrite(tmp_path: Path):

@@ -146,6 +146,7 @@ def register_collected_unit(
         validated['required_topics'],
         validated['required_metadata'],
         metadata_input,
+        lock['protocol'].get('data_collection', {}).get('requirements'),
     )
     raw_index = yaml.safe_load(index_path.read_text(encoding='utf-8'))
     if not isinstance(raw_index, dict):

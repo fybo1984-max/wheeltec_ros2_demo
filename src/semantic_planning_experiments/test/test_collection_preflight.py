@@ -111,6 +111,48 @@ def test_plan_is_explicitly_unexecuted_and_contains_metadata_draft(
     }
 
 
+def test_plan_includes_frozen_stable_observation_requirements(
+    tmp_path: Path,
+    monkeypatch,
+):
+    workspace, index_path, validated, lock = _inputs(tmp_path, monkeypatch)
+    validated['required_metadata'].append('observation_conditions')
+    requirements = {
+        'recording_duration_s': {'minimum': 10.0, 'maximum': 15.0},
+        'measured_person_pose': {
+            'frame_id': 'map',
+            'maximum_uncertainty_m': 0.05,
+            'measured_before_recording': True,
+        },
+        'observation': {
+            'person_stable_before_recording': True,
+            'setup_motion_recorded': False,
+        },
+    }
+    lock['protocol']['data_collection'] = {
+        'requirements': requirements,
+    }
+
+    plan = build_collection_plan(
+        index_path,
+        'near_001',
+        workspace,
+        minimum_free_gib=0.000001,
+    )
+
+    assert plan['collection_requirements'] == requirements
+    pose = plan['metadata_draft']['measured_person_pose_in_map']
+    assert pose['measurement_method'] == ''
+    assert pose['uncertainty_m'] is None
+    assert plan['metadata_draft']['observation_conditions'] == {
+        'person_stable_before_recording': None,
+        'setup_motion_recorded': None,
+    }
+    assert any('10.0 to 15.0 seconds' in action for action in (
+        plan['operator_actions_required']
+    ))
+
+
 def test_plan_rejects_unknown_unit(tmp_path: Path, monkeypatch):
     workspace, index_path, _, _ = _inputs(tmp_path, monkeypatch)
 

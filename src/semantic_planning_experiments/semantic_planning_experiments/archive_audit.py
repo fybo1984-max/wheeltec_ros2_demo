@@ -410,6 +410,25 @@ def _rosbag_topics(bag_path: Path, required_topics: list[str]) -> dict:
     return topics
 
 
+def _rosbag_duration_s(bag_path: Path) -> float | None:
+    metadata = yaml.safe_load(
+        (bag_path / 'metadata.yaml').read_text(encoding='utf-8')
+    )
+    try:
+        nanoseconds = metadata['rosbag2_bagfile_information'][
+            'duration'
+        ]['nanoseconds']
+    except (KeyError, TypeError):
+        return None
+    if (
+        isinstance(nanoseconds, bool)
+        or not isinstance(nanoseconds, int)
+        or nanoseconds < 0
+    ):
+        raise ValueError('Rosbag duration metadata is invalid')
+    return nanoseconds * 1.0e-9
+
+
 def inspect_recorded_bag(
     bag_path: Path,
     required_topics: list[str],
@@ -421,17 +440,23 @@ def inspect_recorded_bag(
     return {
         'path': str(bag_path),
         'topics': topics,
+        'duration_s': _rosbag_duration_s(bag_path),
         **inventory,
     }
 
 
-def _validate_unit_metadata(path: Path, required: list[str]) -> dict:
+def _validate_unit_metadata(
+    path: Path,
+    required: list[str],
+    requirements: dict | None = None,
+) -> dict:
     if not path.is_file():
         raise ValueError('unit metadata JSON is missing')
     metadata = _load_mapping(path, 'unit metadata')
     missing = [name for name in required if name not in metadata]
     if missing:
         raise ValueError(f'unit metadata is missing fields: {missing}')
+    timestamps = None
     for name in required:
         value = metadata[name]
         if name == 'camera_model_and_serial':
@@ -459,6 +484,38 @@ def _validate_unit_metadata(path: Path, required: list[str]) -> dict:
                 ):
                     raise ValueError(
                         f'measured_person_pose_in_map.{coordinate} is invalid'
+                    )
+            pose_requirement = (requirements or {}).get(
+                'measured_person_pose'
+            )
+            if pose_requirement is not None:
+                if value.get('frame_id') != pose_requirement['frame_id']:
+                    raise ValueError(
+                        'measured_person_pose_in_map.frame_id is invalid'
+                    )
+                method = value.get('measurement_method')
+                if not isinstance(method, str) or not method.strip():
+                    raise ValueError(
+                        'measured_person_pose_in_map.measurement_method '
+                        'must be a string'
+                    )
+                uncertainty = value.get('uncertainty_m')
+                if (
+                    isinstance(uncertainty, bool)
+                    or not isinstance(uncertainty, (int, float))
+                    or not math.isfinite(uncertainty)
+                    or uncertainty < 0.0
+                    or uncertainty > pose_requirement[
+                        'maximum_uncertainty_m'
+                    ]
+                ):
+                    raise ValueError(
+                        'measured_person_pose_in_map.uncertainty_m exceeds '
+                        'the protocol maximum'
+                    )
+                if value.get('measured_before_recording') is not True:
+                    raise ValueError(
+                        'person pose was not measured before recording'
                     )
         elif name == 'recording_start_and_end_utc':
             if not isinstance(value, dict):
@@ -489,8 +546,34 @@ def _validate_unit_metadata(path: Path, required: list[str]) -> dict:
                 raise ValueError(
                     'recording end_utc must be later than start_utc'
                 )
+        elif name == 'observation_conditions':
+            if not isinstance(value, dict):
+                raise ValueError(
+                    'observation_conditions must be a mapping'
+                )
+            observation = (requirements or {}).get('observation')
+            if observation is not None and value != observation:
+                raise ValueError(
+                    'observation_conditions violate the protocol'
+                )
         elif value is None or value == '' or value == [] or value == {}:
             raise ValueError(f'unit metadata {name} must not be empty')
+    duration_requirement = (requirements or {}).get('recording_duration_s')
+    if duration_requirement is not None:
+        if timestamps is None:
+            raise ValueError('recording timestamps are required')
+        duration = (
+            timestamps['end_utc'] - timestamps['start_utc']
+        ).total_seconds()
+        if not (
+            duration_requirement['minimum']
+            <= duration
+            <= duration_requirement['maximum']
+        ):
+            raise ValueError(
+                'recording duration violates the protocol: '
+                f'{duration:.3f} s'
+            )
     return {
         'path': path.name,
         'sha256': sha256_file(path),
@@ -502,12 +585,28 @@ def _audit_collected_unit(
     unit: dict,
     required_topics,
     required_metadata,
+    requirements: dict | None = None,
 ) -> dict:
     bag = inspect_recorded_bag(unit['bag_path'], required_topics)
     metadata = _validate_unit_metadata(
         unit['metadata_path'],
         required_metadata,
+        requirements,
     )
+    duration_requirement = (requirements or {}).get('recording_duration_s')
+    if duration_requirement is not None:
+        duration = bag['duration_s']
+        if duration is None:
+            raise ValueError('Rosbag duration metadata is missing')
+        if not (
+            duration_requirement['minimum']
+            <= duration
+            <= duration_requirement['maximum']
+        ):
+            raise ValueError(
+                'Rosbag duration violates the protocol: '
+                f'{duration:.3f} s'
+            )
     return {
         'bag': {
             **bag,
@@ -529,6 +628,7 @@ def validate_collected_unit_artifacts(
     required_topics: list[str],
     required_metadata: list[str],
     metadata_path: Path | None = None,
+    requirements: dict | None = None,
 ) -> dict:
     """Validate one bag and metadata file without changing the archive."""
     candidate = dict(unit)
@@ -538,6 +638,7 @@ def validate_collected_unit_artifacts(
         candidate,
         required_topics,
         required_metadata,
+        requirements,
     )
 
 
@@ -605,6 +706,7 @@ def audit_archive_index(
                     unit,
                     validated['required_topics'],
                     validated['required_metadata'],
+                    lock['protocol']['data_collection'].get('requirements'),
                 )
                 result['audit_status'] = 'passed'
             except (

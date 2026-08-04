@@ -195,9 +195,9 @@ Freeze the recorded RGB-D pilot protocol on a clean tracked revision:
 
 ```bash
 ros2 run semantic_planning_experiments semantic_protocol_freeze \
-  src/semantic_planning_experiments/config/recorded_rgbd_pilot_protocol.yaml \
+  src/semantic_planning_experiments/config/recorded_rgbd_pilot_protocol_v2.yaml \
   --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
-  --output /tmp/semantic_recorded_rgbd_pilot_v1.lock.json
+  --output /tmp/semantic_recorded_rgbd_pilot_v2.lock.json
 ```
 
 Verify the lock later against the checked-out revision and assets:
@@ -205,7 +205,7 @@ Verify the lock later against the checked-out revision and assets:
 ```bash
 ros2 run semantic_planning_experiments semantic_protocol_freeze \
   --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
-  --verify-lock /tmp/semantic_recorded_rgbd_pilot_v1.lock.json
+  --verify-lock /tmp/semantic_recorded_rgbd_pilot_v2.lock.json
 ```
 
 The freezer rejects dirty worktrees, wrong branches, untracked or external
@@ -220,8 +220,8 @@ Initialize the external archive ledger from a verified lock:
 ```bash
 ros2 run semantic_planning_experiments semantic_archive_audit \
   --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
-  --protocol-lock /tmp/semantic_recorded_rgbd_pilot_v1.lock.json \
-  --initialize-index /tmp/semantic_recorded_rgbd_archive_v1/index.yaml
+  --protocol-lock /tmp/semantic_recorded_rgbd_pilot_v2.lock.json \
+  --initialize-index /tmp/semantic_recorded_rgbd_archive_v2/index.yaml
 ```
 
 Audit the archive without modifying its bags or unit metadata:
@@ -229,9 +229,9 @@ Audit the archive without modifying its bags or unit metadata:
 ```bash
 ros2 run semantic_planning_experiments semantic_archive_audit \
   --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
-  --protocol-lock /tmp/semantic_recorded_rgbd_pilot_v1.lock.json \
-  --audit-index /tmp/semantic_recorded_rgbd_archive_v1/index.yaml \
-  --output /tmp/semantic_recorded_rgbd_archive_v1/audit.json
+  --protocol-lock /tmp/semantic_recorded_rgbd_pilot_v2.lock.json \
+  --audit-index /tmp/semantic_recorded_rgbd_archive_v2/index.yaml \
+  --output /tmp/semantic_recorded_rgbd_archive_v2/audit.json
 ```
 
 The initialized index contains every preregistered independent unit and never
@@ -248,10 +248,10 @@ Before collecting one unit, generate a non-executing preflight plan:
 ```bash
 ros2 run semantic_planning_experiments semantic_collection_preflight \
   --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
-  --archive-index /tmp/semantic_recorded_rgbd_archive_v1/index.yaml \
+  --archive-index /tmp/semantic_recorded_rgbd_archive_v2/index.yaml \
   --unit-id person_near_001 \
   --minimum-free-gib 5 \
-  --output /tmp/semantic_recorded_rgbd_archive_v1/preflight/person_near_001.json
+  --output /tmp/semantic_recorded_rgbd_archive_v2/preflight/person_near_001.json
 ```
 
 The preflight re-verifies the protocol lock and archive allocation, requires
@@ -262,6 +262,13 @@ an intentionally incomplete metadata draft, but does not start ROS, a camera,
 a detector, Rosbag, a controller, or the base. A separate operator notice and
 explicit authorization are still required before executing any generated
 command.
+
+The v2 frozen requirements allow only a 10.0--15.0 second observation after
+the person is stationary. Unit metadata must record the map-frame measurement
+method and uncertainty at or below 0.05 m, confirm that the pose was measured
+before recording, and confirm that no setup motion was captured. Registration
+rejects a unit that violates any of these requirements. The existing v1 archive
+remains an engineering record and must not receive new formal units.
 
 After the approved camera and detector are running, but before recording a
 unit, validate the live input contract:
@@ -294,10 +301,10 @@ standalone JSON file, register the unit without editing the ledger manually:
 ```bash
 ros2 run semantic_planning_experiments semantic_archive_register \
   --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
-  --archive-index /tmp/semantic_recorded_rgbd_archive_v1/index.yaml \
+  --archive-index /tmp/semantic_recorded_rgbd_archive_v2/index.yaml \
   --unit-id person_near_001 \
   --metadata-input /tmp/semantic_recorded_rgbd_staging/person_near_001.json \
-  --receipt /tmp/semantic_recorded_rgbd_archive_v1/receipts/person_near_001.json
+  --receipt /tmp/semantic_recorded_rgbd_archive_v2/receipts/person_near_001.json
 ```
 
 Registration accepts only a still-`planned` unit. Before writing anything, it
@@ -316,7 +323,7 @@ planner:
 
 ```bash
 ros2 launch semantic_planning_experiments recorded_rgbd_planner_ab.launch.py \
-  bag_path:=/tmp/semantic_recorded_rgbd_archive_v1/bags/person_near_001 \
+  bag_path:=/tmp/semantic_recorded_rgbd_archive_v2/bags/person_near_001 \
   unit_id:=person_near_001 \
   domain_id:=76 \
   playback_start_offset_seconds:=0.0 \

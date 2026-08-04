@@ -219,6 +219,74 @@ def _finite_probability(value, description: str) -> float:
     return float(value)
 
 
+def _positive_finite(value, description: str) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0.0
+    ):
+        raise ValueError(f'{description} must be positive and finite')
+    return float(value)
+
+
+def _validate_collection_requirements(value) -> dict | None:
+    if value is None:
+        return None
+    requirements = _mapping(value, 'data_collection.requirements')
+    duration = _mapping(
+        requirements.get('recording_duration_s'),
+        'data_collection.requirements.recording_duration_s',
+    )
+    minimum = _positive_finite(
+        duration.get('minimum'),
+        'recording duration minimum',
+    )
+    maximum = _positive_finite(
+        duration.get('maximum'),
+        'recording duration maximum',
+    )
+    if maximum < minimum:
+        raise ValueError('recording duration maximum must follow minimum')
+    pose = _mapping(
+        requirements.get('measured_person_pose'),
+        'data_collection.requirements.measured_person_pose',
+    )
+    frame_id = _nonempty_string(
+        pose.get('frame_id'),
+        'measured person pose frame_id',
+    )
+    maximum_uncertainty = _positive_finite(
+        pose.get('maximum_uncertainty_m'),
+        'measured person pose maximum uncertainty',
+    )
+    if pose.get('measured_before_recording') is not True:
+        raise ValueError('person pose must be measured before recording')
+    observation = _mapping(
+        requirements.get('observation'),
+        'data_collection.requirements.observation',
+    )
+    if observation.get('person_stable_before_recording') is not True:
+        raise ValueError('person must be stable before recording')
+    if observation.get('setup_motion_recorded') is not False:
+        raise ValueError('setup motion must not be recorded')
+    return {
+        'recording_duration_s': {
+            'minimum': minimum,
+            'maximum': maximum,
+        },
+        'measured_person_pose': {
+            'frame_id': frame_id,
+            'maximum_uncertainty_m': maximum_uncertainty,
+            'measured_before_recording': True,
+        },
+        'observation': {
+            'person_stable_before_recording': True,
+            'setup_motion_recorded': False,
+        },
+    }
+
+
 def _validate_statistics(value, confirmatory: bool) -> dict:
     statistics_config = _mapping(value, 'statistics')
     alpha = _finite_probability(
@@ -331,6 +399,11 @@ def load_protocol(path: Path, workspace_root: Path) -> dict:
         ),
         'storage_policy': collection.get('storage_policy'),
     }
+    requirements = _validate_collection_requirements(
+        collection.get('requirements')
+    )
+    if requirements is not None:
+        data_collection['requirements'] = requirements
     if data_collection['storage_policy'] != 'outside_repository':
         raise ValueError(
             'data_collection.storage_policy must be outside_repository'

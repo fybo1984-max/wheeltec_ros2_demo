@@ -183,6 +183,54 @@ def test_confirmatory_protocol_requires_multiplicity_control(tmp_path: Path):
         freeze_protocol(protocol_path, repo)
 
 
+def test_freeze_records_stable_observation_requirements(tmp_path: Path):
+    protocol = _protocol()
+    protocol['data_collection']['requirements'] = {
+        'recording_duration_s': {'minimum': 10, 'maximum': 15},
+        'measured_person_pose': {
+            'frame_id': 'map',
+            'maximum_uncertainty_m': 0.05,
+            'measured_before_recording': True,
+        },
+        'observation': {
+            'person_stable_before_recording': True,
+            'setup_motion_recorded': False,
+        },
+    }
+    repo, protocol_path = _repository(tmp_path, protocol)
+
+    lock = freeze_protocol(protocol_path, repo)
+
+    requirements = lock['protocol']['data_collection']['requirements']
+    assert requirements['recording_duration_s'] == {
+        'minimum': 10.0,
+        'maximum': 15.0,
+    }
+    assert requirements['measured_person_pose'][
+        'maximum_uncertainty_m'
+    ] == 0.05
+
+
+def test_freeze_rejects_reversed_recording_duration(tmp_path: Path):
+    protocol = _protocol()
+    protocol['data_collection']['requirements'] = {
+        'recording_duration_s': {'minimum': 15, 'maximum': 10},
+        'measured_person_pose': {
+            'frame_id': 'map',
+            'maximum_uncertainty_m': 0.05,
+            'measured_before_recording': True,
+        },
+        'observation': {
+            'person_stable_before_recording': True,
+            'setup_motion_recorded': False,
+        },
+    }
+    repo, protocol_path = _repository(tmp_path, protocol)
+
+    with pytest.raises(ValueError, match='duration maximum'):
+        freeze_protocol(protocol_path, repo)
+
+
 def test_verify_rejects_tampered_lock(tmp_path: Path):
     repo, protocol_path = _repository(tmp_path)
     lock = freeze_protocol(protocol_path, repo)

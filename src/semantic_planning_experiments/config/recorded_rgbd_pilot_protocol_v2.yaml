@@ -1,0 +1,140 @@
+schema_version: 1
+protocol_id: semantic_recorded_rgbd_pilot_v2
+title: Recorded RGB-D person-risk projection and footprint planning pilot
+phase: recorded_rgbd_pilot
+expected_branch: innovation
+confirmatory: false
+
+research_questions:
+  - id: RQ1
+    hypothesis: >-
+      A person detection projected from registered RGB-D observations produces
+      a map-frame risk mask with bounded position error across the declared
+      near, nominal, and far distance strata.
+  - id: RQ2
+    hypothesis: >-
+      The fuzzy semantic layer eliminates swept vehicle-footprint crossing of
+      the person-risk mask when a feasible geometric detour exists.
+
+methods:
+  - baseline
+  - fuzzy
+
+experimental_unit:
+  name: independent_stable_person_rosbag
+  independence_rule: >-
+    Each unit is a separately started recording after the person is stationary
+    at a newly measured map position; a replay is not a new unit.
+  pseudoreplication_rule: >-
+    Frames, detections, repeated playback and repeated planner calls from one
+    bag remain nested measurements within that independent unit.
+
+endpoints:
+  primary:
+    - id: projection_error
+      metric: perception.mask_centroid_position_error_m
+      direction: lower
+      analysis: descriptive
+      rationale: >-
+        Map-frame risk position must agree with independently measured person
+        position before planning effects are interpreted.
+    - id: footprint_risk_crossing
+      metric: semantic.metrics.footprint_semantic_crossing_length_m
+      direction: lower
+      analysis: paired
+      rationale: >-
+        Swept vehicle-footprint crossing is the primary navigation safety
+        outcome and prevents centerline-only safety claims.
+  secondary:
+    - id: footprint_clearance
+      metric: semantic.metrics.minimum_footprint_semantic_clearance_m
+      direction: higher
+      analysis: paired
+      rationale: >-
+        Vehicle-edge clearance quantifies separation from the semantic mask.
+    - id: centerline_risk_crossing
+      metric: semantic.metrics.semantic_crossing_length_m
+      direction: lower
+      analysis: paired
+      rationale: Centerline crossing is retained for comparison with prior work.
+    - id: path_overhead
+      metric: delta_semantic_minus_baseline.path_length_m
+      direction: lower
+      analysis: paired
+      rationale: Path overhead quantifies the efficiency cost of risk avoidance.
+
+sample_size:
+  total_independent_units: 12
+  allocation:
+    person_near: 4
+    person_nominal: 4
+    person_far: 4
+  purpose: variance_estimation
+  rationale: >-
+    Twelve independent stable recordings estimate projection and paired path
+    variability before the final physical-vehicle experiment.
+
+statistics:
+  alpha: 0.05
+  confidence_level: 0.95
+  paired_test: sign_flip
+  exact_pair_limit: 16
+  monte_carlo_samples: 100000
+  monte_carlo_seed: 20260801
+  effect_size: cohen_dz
+  zero_variance_effect: "null"
+  multiple_comparisons: none
+
+exclusion_rules:
+  - The bag is unreadable or incomplete before outcome analysis.
+  - A required topic has no messages for the assigned observation interval.
+  - Camera calibration or required map-to-camera TF is unavailable.
+  - Measured person position uncertainty exceeds 0.05 m.
+  - Recording duration is outside 10.0 to 15.0 seconds.
+  - The person was not stable before recording or setup motion was recorded.
+  - The recording deviated from its assigned distance stratum.
+
+missing_data_policy: >-
+  Do not impute outcomes. Preserve invalid and missing units in the audit log;
+  recollection is allowed only for a predeclared technical exclusion and must
+  receive a new unit identifier. Planning failure is an outcome, not exclusion.
+
+data_collection:
+  required_topics:
+    - /camera/color/image_raw
+    - /camera/depth/image_raw
+    - /camera/color/camera_info
+    - /tf
+    - /tf_static
+    - /detections
+  required_metadata:
+    - camera_model_and_serial
+    - detector_runtime_version
+    - detector_model_sha256
+    - map_yaml_sha256
+    - measured_person_pose_in_map
+    - recording_start_and_end_utc
+    - observation_conditions
+  requirements:
+    recording_duration_s:
+      minimum: 10.0
+      maximum: 15.0
+    measured_person_pose:
+      frame_id: map
+      maximum_uncertainty_m: 0.05
+      measured_before_recording: true
+    observation:
+      person_stable_before_recording: true
+      setup_motion_recorded: false
+  storage_policy: outside_repository
+
+collection_scope:
+  controller_allowed: false
+  hardware_motion_allowed: false
+  velocity_commands_allowed: false
+  physical_camera_allowed: true
+  operator_notification_required: true
+
+assets:
+  - src/semantic_planning_experiments/config/planner_ab.yaml
+  - src/semantic_mask_generator/config/semantic_mask.yaml
