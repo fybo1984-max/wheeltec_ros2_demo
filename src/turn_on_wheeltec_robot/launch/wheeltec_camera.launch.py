@@ -30,14 +30,6 @@ def spawn_camera_nodes(context, *args, **kwargs):
     astra_dir = get_package_share_directory('astra_camera')
     astra_launch_dir = os.path.join(astra_dir, 'launch')
     
-    usbcam_dir = get_package_share_directory('usb_cam')
-    usbcam_launch_dir = os.path.join(usbcam_dir, 'launch')
-    
-    usbcam_arg = DeclareLaunchArgument(
-        'video_device', default_value='/dev/video0',
-        description='video device serial number.'
-    )
-
     if camera_mode_.startswith('astra') or camera_mode_.startswith('dabai') or camera_mode_.startswith('gemini'):
         camera_launch = IncludeLaunchDescription(
             AnyLaunchDescriptionSource(os.path.join(astra_launch_dir, file_name)),
@@ -47,6 +39,8 @@ def spawn_camera_nodes(context, *args, **kwargs):
             ]
         )
     elif camera_mode_.startswith('usb'):
+        usbcam_dir = get_package_share_directory('usb_cam')
+        usbcam_launch_dir = os.path.join(usbcam_dir, 'launch')
         camera_launch = IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(usbcam_launch_dir, 'demo.launch.py')),
             launch_arguments={'video_device': '/dev/RgbCam'}.items()

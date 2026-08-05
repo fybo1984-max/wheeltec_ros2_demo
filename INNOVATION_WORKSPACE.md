@@ -32,7 +32,7 @@ ros2 launch largemodel largemodel_control.launch.py \
 ```bash
 cd /home/wheeltec/wheeltec_ros2_innovation
 source /opt/ros/humble/setup.bash
-source install/setup.bash
+source install/local_setup.bash
 
 ros2 launch largemodel largemodel_control.launch.py \
   use_nav:=true \
@@ -64,8 +64,11 @@ ros2 launch largemodel largemodel_control.launch.py \
    cd /home/wheeltec/wheeltec_ros2_innovation
    source /opt/ros/humble/setup.bash
    colcon build --symlink-install
-   source install/setup.bash
+   source install/local_setup.bash
    ```
+
+   创新工作空间使用 `local_setup.bash`，避免 `setup.bash` 自动加载编译时记录的
+   其他 underlay。运行前可确认 `ros2 pkg prefix <包名>` 均指向本创新工作空间。
 
 6. 提交创新代码前先检查：
 
@@ -162,6 +165,11 @@ ros2 launch largemodel largemodel_control.launch.py \
   置信度阈值的标准 `person` 到 `/detections`，完整保留 stamp、frame 和二维框。
   模型、输入输出 topic、设备和阈值均可配置；7 项消息契约测试通过。模型权重
   继续由 `.gitignore` 排除，真实单元元数据记录其 SHA-256。
+- 当前真实感知设备确认为 Orbbec ASTRA S（USB `2bc5:0402`，序列号
+  `17121811131`）。在仅加载 `/opt/ros/humble` 与 innovation `local_setup.bash`
+  的隔离环境中，彩色/对齐深度/CameraInfo 实测为 640×480，彩色 `rgb8`、深度
+  `16UC1`，共同使用 `camera_color_optical_frame`；实时输入门禁 11 项全部通过，
+  检测—深度最大时间差 0.033 s。该结果是设备就绪证据，不计入论文正式样本。
 - 新增采集单元登记器，录制停止后自动验证 SQLite 完整性、数据库实际 topic
   消息数、元数据、UTC 时间顺序和文件清单，再将 `planned` 原子登记为
   `collected`；原始 bag 和元数据源不改写，索引前后哈希与归档清单写入不可
