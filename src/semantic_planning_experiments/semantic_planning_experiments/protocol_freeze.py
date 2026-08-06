@@ -111,6 +111,24 @@ def _git_state(workspace_root: Path) -> dict:
     return {'branch': branch, 'revision': revision}
 
 
+def _is_ancestor(
+    workspace_root: Path,
+    ancestor: str,
+    descendant: str,
+) -> bool:
+    result = subprocess.run(
+        ['git', 'merge-base', '--is-ancestor', ancestor, descendant],
+        cwd=workspace_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode not in (0, 1):
+        reason = result.stderr.strip() or result.stdout.strip()
+        raise ValueError(f'git merge-base failed: {reason}')
+    return result.returncode == 0
+
+
 def _tracked_relative_path(path: Path, workspace_root: Path) -> str:
     resolved = path.expanduser().resolve()
     try:
@@ -552,7 +570,7 @@ def freeze_protocol(path: Path, workspace_root: Path) -> dict:
 
 
 def verify_protocol_lock(lock_path: Path, workspace_root: Path) -> dict:
-    """Verify a frozen protocol against the current clean Git checkout."""
+    """Verify a frozen protocol and a compatible clean tooling checkout."""
     workspace_root = workspace_root.expanduser().resolve()
     git_state = _git_state(workspace_root)
     lock_path = lock_path.expanduser().resolve()
@@ -564,8 +582,18 @@ def verify_protocol_lock(lock_path: Path, workspace_root: Path) -> dict:
         raise ValueError('protocol lock fingerprint mismatch')
     if git_state['branch'] != lock.get('git_branch'):
         raise ValueError('protocol lock branch mismatch')
-    if git_state['revision'] != lock.get('code_revision'):
-        raise ValueError('protocol lock revision mismatch')
+    locked_revision = lock.get('code_revision')
+    if not isinstance(locked_revision, str) or not locked_revision:
+        raise ValueError('protocol lock revision is invalid')
+    revision_match = git_state['revision'] == locked_revision
+    if not revision_match and not _is_ancestor(
+        workspace_root,
+        locked_revision,
+        git_state['revision'],
+    ):
+        raise ValueError(
+            'current tooling revision does not descend from the protocol lock'
+        )
     references = [lock['source_protocol'], *lock['assets']]
     for reference in references:
         relative = _tracked_relative_path(
@@ -579,7 +607,9 @@ def verify_protocol_lock(lock_path: Path, workspace_root: Path) -> dict:
     return {
         'valid': True,
         'protocol_id': lock['protocol']['protocol_id'],
-        'code_revision': lock['code_revision'],
+        'code_revision': locked_revision,
+        'tooling_revision': git_state['revision'],
+        'revision_relation': 'exact' if revision_match else 'descendant',
         'freeze_fingerprint_sha256': lock['freeze_fingerprint_sha256'],
     }
 
@@ -619,10 +649,13 @@ def main(args=None) -> None:
                 parsed.workspace_root,
             )
             print(
-                'protocol lock valid; protocol=%s; revision=%s; fingerprint=%s'
+                'protocol lock valid; protocol=%s; locked_revision=%s; '
+                'tooling_revision=%s; relation=%s; fingerprint=%s'
                 % (
                     verification['protocol_id'],
                     verification['code_revision'],
+                    verification['tooling_revision'],
+                    verification['revision_relation'],
                     verification['freeze_fingerprint_sha256'],
                 )
             )

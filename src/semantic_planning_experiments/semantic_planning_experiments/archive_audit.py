@@ -81,6 +81,7 @@ def _expected_units(lock: dict) -> list[dict]:
                 'bag_path': f'bags/{unit_id}',
                 'metadata_path': f'metadata/{unit_id}.json',
                 'invalid_reason': None,
+                'replaces_unit_id': None,
             })
     return units
 
@@ -182,6 +183,7 @@ def _validate_index(index: dict, index_path: Path, lock: dict) -> dict:
     ):
         raise ValueError('archive index required metadata mismatch')
 
+    allocation = lock['protocol']['sample_size']['allocation']
     expected = {
         unit['unit_id']: (unit['stratum'], unit['ordinal'])
         for unit in _expected_units(lock)
@@ -204,9 +206,35 @@ def _validate_index(index: dict, index_path: Path, lock: dict) -> dict:
         if unit_id in seen_ids:
             raise ValueError(f'duplicate archive unit id: {unit_id}')
         seen_ids.add(unit_id)
-        if unit_id not in expected:
-            raise ValueError(f'unplanned archive unit id: {unit_id}')
-        stratum, ordinal = expected[unit_id]
+        if unit_id in expected:
+            stratum, ordinal = expected[unit_id]
+            replaces_unit_id = raw_unit.get('replaces_unit_id')
+            if replaces_unit_id is not None:
+                raise ValueError(
+                    f'base archive unit cannot replace another unit: {unit_id}'
+                )
+        else:
+            stratum = raw_unit.get('stratum')
+            ordinal = raw_unit.get('ordinal')
+            if stratum not in allocation:
+                raise ValueError(f'unplanned archive unit id: {unit_id}')
+            if (
+                isinstance(ordinal, bool)
+                or not isinstance(ordinal, int)
+                or ordinal <= allocation[stratum]
+                or unit_id != f'{stratum}_{ordinal:03d}'
+            ):
+                raise ValueError(
+                    f'replacement unit allocation mismatch: {unit_id}'
+                )
+            replaces_unit_id = raw_unit.get('replaces_unit_id')
+            if (
+                not isinstance(replaces_unit_id, str)
+                or not _UNIT_ID_PATTERN.fullmatch(replaces_unit_id)
+            ):
+                raise ValueError(
+                    f'replacement unit needs replaces_unit_id: {unit_id}'
+                )
         if (
             raw_unit.get('stratum') != stratum
             or raw_unit.get('ordinal') != ordinal
@@ -250,10 +278,52 @@ def _validate_index(index: dict, index_path: Path, lock: dict) -> dict:
             'bag_path': bag_path,
             'metadata_relative': metadata_relative,
             'metadata_path': metadata_path,
+            'replaces_unit_id': replaces_unit_id,
         })
-    if seen_ids != set(expected):
+    if not set(expected).issubset(seen_ids):
         missing = sorted(set(expected) - seen_ids)
         raise ValueError(f'archive index is missing planned units: {missing}')
+    units_by_id = {unit['unit_id']: unit for unit in units}
+    replaced_ids = set()
+    for unit in units:
+        replaced = unit['replaces_unit_id']
+        if replaced is None:
+            continue
+        if replaced in replaced_ids:
+            raise ValueError(
+                f'archive unit has multiple replacements: {replaced}'
+            )
+        replaced_ids.add(replaced)
+        source = units_by_id.get(replaced)
+        if source is None:
+            raise ValueError(
+                f'replacement source does not exist: {unit["unit_id"]}'
+            )
+        if source['stratum'] != unit['stratum']:
+            raise ValueError(
+                f'replacement source stratum mismatch: {unit["unit_id"]}'
+            )
+        if source['status'] != 'invalid':
+            raise ValueError(
+                f'replacement source is not invalid: {unit["unit_id"]}'
+            )
+        if source['ordinal'] >= unit['ordinal']:
+            raise ValueError(
+                'replacement ordinal must follow its source: '
+                f'{unit["unit_id"]}'
+            )
+    for stratum, base_count in allocation.items():
+        replacement_ordinals = sorted(
+            unit['ordinal'] for unit in units
+            if unit['stratum'] == stratum and unit['ordinal'] > base_count
+        )
+        if replacement_ordinals and replacement_ordinals != list(range(
+            base_count + 1,
+            replacement_ordinals[-1] + 1,
+        )):
+            raise ValueError(
+                f'replacement ordinals are not contiguous: {stratum}'
+            )
     return {
         'archive_root': archive_root,
         'protocol': expected_protocol,
@@ -276,8 +346,9 @@ def load_validated_archive_index(
     if not isinstance(protocol_reference, dict):
         raise ValueError('archive index protocol reference is missing')
     lock_path = Path(str(protocol_reference.get('lock_path', '')))
-    verify_protocol_lock(lock_path, workspace_root)
+    verification = verify_protocol_lock(lock_path, workspace_root)
     lock = _load_mapping(lock_path, 'protocol lock')
+    lock['_tooling_verification'] = verification
     return _validate_index(index, index_path, lock), lock
 
 
@@ -714,6 +785,7 @@ def audit_archive_index(
             'audit_status': 'missing',
             'reason': None,
             'artifacts': None,
+            'replaces_unit_id': unit['replaces_unit_id'],
         }
         if unit['status'] == 'planned':
             if unit['bag_path'].exists() or unit['metadata_path'].exists():
@@ -752,12 +824,38 @@ def audit_archive_index(
         status: sum(item['audit_status'] == status for item in results)
         for status in ('passed', 'missing', 'invalid')
     }
+    allocation = lock['protocol']['sample_size']['allocation']
+    stratum_status = {}
+    for stratum, target in allocation.items():
+        stratum_results = [
+            item for item in results if item['stratum'] == stratum
+        ]
+        stratum_status[stratum] = {
+            'target_passed': target,
+            'passed': sum(
+                item['audit_status'] == 'passed' for item in stratum_results
+            ),
+            'missing': sum(
+                item['audit_status'] == 'missing' for item in stratum_results
+            ),
+            'invalid': sum(
+                item['audit_status'] == 'invalid' for item in stratum_results
+            ),
+        }
+    analysis_ready = all(
+        status['passed'] == status['target_passed']
+        and status['missing'] == 0
+        for status in stratum_status.values()
+    )
+    verification = lock['_tooling_verification']
     return {
         'schema_version': 1,
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'protocol_id': lock['protocol']['protocol_id'],
         'freeze_fingerprint_sha256': lock['freeze_fingerprint_sha256'],
         'code_revision': lock['code_revision'],
+        'tooling_revision': verification['tooling_revision'],
+        'tooling_revision_relation': verification['revision_relation'],
         'archive_root': str(validated['archive_root']),
         'index': {
             'path': str(index_path),
@@ -765,11 +863,9 @@ def audit_archive_index(
         },
         'unit_count': len(results),
         'status_counts': counts,
-        'analysis_ready': counts == {
-            'passed': len(results),
-            'missing': 0,
-            'invalid': 0,
-        },
+        'target_valid_unit_count': sum(allocation.values()),
+        'stratum_status': stratum_status,
+        'analysis_ready': analysis_ready,
         'units': results,
     }
 

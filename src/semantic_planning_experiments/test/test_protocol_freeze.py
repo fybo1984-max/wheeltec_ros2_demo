@@ -268,7 +268,7 @@ def test_verify_rejects_tampered_lock(tmp_path: Path):
         verify_protocol_lock(lock_path, repo)
 
 
-def test_verify_rejects_new_revision(tmp_path: Path):
+def test_verify_accepts_descendant_tooling_revision(tmp_path: Path):
     repo, protocol_path = _repository(tmp_path)
     lock = freeze_protocol(protocol_path, repo)
     lock_path = write_protocol_lock(lock, tmp_path / 'protocol-lock.json')
@@ -276,8 +276,15 @@ def test_verify_rejects_new_revision(tmp_path: Path):
     _git(repo, 'add', 'note.txt')
     _git(repo, 'commit', '-m', 'new revision')
 
-    with pytest.raises(ValueError, match='revision mismatch'):
-        verify_protocol_lock(lock_path, repo)
+    verification = verify_protocol_lock(lock_path, repo)
+
+    assert verification['revision_relation'] == 'descendant'
+    assert verification['code_revision'] == lock['code_revision']
+    assert verification['tooling_revision'] == _git(
+        repo,
+        'rev-parse',
+        'HEAD',
+    )
 
 
 def test_freeze_rejects_untracked_ignored_asset(tmp_path: Path):

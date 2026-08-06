@@ -26,6 +26,9 @@ from semantic_planning_experiments.archive_audit import _validate_unit_metadata
 from semantic_planning_experiments.archive_audit import (
     initialize_archive_index,
 )
+from semantic_planning_experiments.archive_replacement import (
+    allocate_replacement,
+)
 from semantic_planning_experiments.protocol_freeze import freeze_protocol
 from semantic_planning_experiments.protocol_freeze import write_protocol_lock
 
@@ -230,6 +233,15 @@ def _mark_collected(index_path: Path, unit_ids: list[str]) -> None:
     for unit in index['units']:
         if unit['unit_id'] in unit_ids:
             unit['status'] = 'collected'
+    _write_index(index_path, index)
+
+
+def _mark_invalid(index_path: Path, unit_id: str) -> None:
+    index = _read_index(index_path)
+    for unit in index['units']:
+        if unit['unit_id'] == unit_id:
+            unit['status'] = 'invalid'
+            unit['invalid_reason'] = 'Predeclared technical exclusion.'
     _write_index(index_path, index)
 
 
@@ -457,6 +469,74 @@ def test_complete_archive_passes_with_recursive_hashes(tmp_path: Path):
     assert bag['file_count'] == 2
     assert len(bag['inventory_sha256']) == 64
     assert bag['topics'] == {topic: 5 for topic in _TOPICS}
+
+
+def test_invalid_unit_can_be_replaced_without_changing_target_size(
+    tmp_path: Path,
+):
+    repo, _, index_path = _archive(tmp_path)
+    _mark_invalid(index_path, 'near_001')
+    receipt_path = index_path.parent / 'receipts/near_002.json'
+
+    receipt = allocate_replacement(
+        index_path,
+        'near_001',
+        receipt_path,
+        repo,
+    )
+
+    assert receipt['replacement']['unit_id'] == 'near_002'
+    assert receipt['replacement']['replaces_unit_id'] == 'near_001'
+    _valid_unit_artifacts(index_path, 'near_002')
+    _valid_unit_artifacts(index_path, 'far_001')
+    _mark_collected(index_path, ['near_002', 'far_001'])
+
+    audit = audit_archive_index(index_path, repo)
+
+    assert audit['analysis_ready']
+    assert audit['target_valid_unit_count'] == 2
+    assert audit['status_counts'] == {
+        'passed': 2,
+        'missing': 0,
+        'invalid': 1,
+    }
+    assert audit['stratum_status']['near'] == {
+        'target_passed': 1,
+        'passed': 1,
+        'missing': 0,
+        'invalid': 1,
+    }
+
+
+def test_replacement_requires_invalid_source(tmp_path: Path):
+    repo, _, index_path = _archive(tmp_path)
+
+    with pytest.raises(ValueError, match='source is not invalid'):
+        allocate_replacement(
+            index_path,
+            'near_001',
+            index_path.parent / 'receipts/near_002.json',
+            repo,
+        )
+
+
+def test_invalid_unit_cannot_receive_multiple_replacements(tmp_path: Path):
+    repo, _, index_path = _archive(tmp_path)
+    _mark_invalid(index_path, 'near_001')
+    allocate_replacement(
+        index_path,
+        'near_001',
+        index_path.parent / 'receipts/near_002.json',
+        repo,
+    )
+
+    with pytest.raises(ValueError, match='already has a replacement'):
+        allocate_replacement(
+            index_path,
+            'near_001',
+            index_path.parent / 'receipts/near_003.json',
+            repo,
+        )
 
 
 def test_missing_required_topic_marks_collected_unit_invalid(tmp_path: Path):

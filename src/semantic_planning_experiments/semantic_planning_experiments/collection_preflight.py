@@ -189,6 +189,9 @@ def build_collection_plan(
                 'freeze_fingerprint_sha256'
             ],
             'code_revision': lock['code_revision'],
+            'tooling_revision': lock.get(
+                '_tooling_verification', {}
+            ).get('tooling_revision', lock['code_revision']),
         },
         'archive': {
             'root': str(validated['archive_root']),
@@ -199,6 +202,7 @@ def build_collection_plan(
             'unit_id': unit['unit_id'],
             'stratum': unit['stratum'],
             'ordinal': unit['ordinal'],
+            'replaces_unit_id': unit.get('replaces_unit_id'),
             'bag_path': str(unit['bag_path']),
             'metadata_path': str(unit['metadata_path']),
         },

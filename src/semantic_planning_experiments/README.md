@@ -200,7 +200,7 @@ ros2 run semantic_planning_experiments semantic_protocol_freeze \
   --output /tmp/semantic_recorded_rgbd_pilot_v2.lock.json
 ```
 
-Verify the lock later against the checked-out revision and assets:
+Verify the lock later against the checked-out tooling revision and assets:
 
 ```bash
 ros2 run semantic_planning_experiments semantic_protocol_freeze \
@@ -213,7 +213,11 @@ assets, unsafe collection scope, sample-allocation errors, statistical
 settings that differ from the implementation, and confirmatory designs
 without multiplicity control. The lock binds normalized protocol content,
 Git revision, source protocol, and every declared configuration SHA-256.
-Lock files and recorded data remain outside the repository.
+Verification accepts either the frozen revision or a clean descendant on the
+same branch, but only while the frozen protocol source and every declared
+asset retain their recorded SHA-256. Reports preserve both the frozen code
+revision and the active tooling revision. Lock files and recorded data remain
+outside the repository.
 
 Initialize the external archive ledger from a verified lock:
 
@@ -241,7 +245,27 @@ with messages, required per-unit metadata, and SHA-256 inventories for every
 bag file. Planned units are visible as missing; invalid units require a reason
 and retain available artifact hashes. Existing artifacts with a still-planned
 status are invalid rather than silently ignored. The command returns nonzero
-until every planned unit passes.
+until each stratum reaches its frozen target of valid independent units and no
+planned unit remains missing. Invalid attempts remain visible but do not make
+a target-complete archive fail.
+
+After a predeclared technical exclusion, allocate exactly one new identifier
+for the invalid unit without deleting or overwriting the excluded attempt:
+
+```bash
+ros2 run semantic_planning_experiments \
+  semantic_archive_allocate_replacement \
+  --workspace-root /home/wheeltec/wheeltec_ros2_innovation \
+  --archive-index /tmp/semantic_recorded_rgbd_archive_v2/index.yaml \
+  --replaces-unit-id person_near_002 \
+  --receipt /tmp/semantic_recorded_rgbd_archive_v2/receipts/person_near_005-allocation.json
+```
+
+The allocator accepts only an `invalid` source, refuses duplicate replacement
+branches, chooses the next contiguous ordinal in the same stratum, appends a
+`planned` unit atomically, and records the ledger hashes in a receipt. If that
+replacement is itself invalid, allocate the next unit from the invalid
+replacement to form an explicit chain.
 
 Before collecting one unit, generate a non-executing preflight plan:
 

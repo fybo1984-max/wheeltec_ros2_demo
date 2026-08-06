@@ -38,6 +38,8 @@ setup(
             'semantic_planning_experiments.archive_audit:main',
             'semantic_archive_register = '
             'semantic_planning_experiments.archive_registration:main',
+            'semantic_archive_allocate_replacement = '
+            'semantic_planning_experiments.archive_replacement:main',
             'semantic_collection_preflight = '
             'semantic_planning_experiments.collection_preflight:main',
             'semantic_live_input_readiness = '

@@ -108,7 +108,9 @@ def register_collected_unit(
     if not metadata_input.is_file() or metadata_input.is_symlink():
         raise ValueError('metadata input must be a regular file')
     if receipt_path.exists():
-        raise ValueError(f'registration receipt already exists: {receipt_path}')
+        raise ValueError(
+            f'registration receipt already exists: {receipt_path}'
+        )
 
     index_before_sha256 = sha256_file(index_path)
     validated, lock = load_validated_archive_index(
@@ -129,7 +131,9 @@ def register_collected_unit(
             f'archive unit is not planned: {unit_id} ({unit["status"]})'
         )
     if not unit['bag_path'].is_dir():
-        raise ValueError(f'Rosbag directory does not exist: {unit["bag_path"]}')
+        raise ValueError(
+            f'Rosbag directory does not exist: {unit["bag_path"]}'
+        )
     if unit['metadata_path'].exists():
         raise ValueError(
             f'archive metadata already exists: {unit["metadata_path"]}'
@@ -180,11 +184,15 @@ def register_collected_unit(
                 'freeze_fingerprint_sha256'
             ],
             'code_revision': lock['code_revision'],
+            'tooling_revision': lock.get(
+                '_tooling_verification', {}
+            ).get('tooling_revision', lock['code_revision']),
         },
         'unit': {
             'unit_id': unit_id,
             'stratum': unit['stratum'],
             'ordinal': unit['ordinal'],
+            'replaces_unit_id': unit.get('replaces_unit_id'),
         },
         'index': {
             'path': str(index_path),
