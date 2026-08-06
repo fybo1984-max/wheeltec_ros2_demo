@@ -13,10 +13,12 @@
 # limitations under the License.
 
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 
 from semantic_planning_experiments.input_readiness import (
+    LiveInputReadiness,
     evaluate_input_readiness,
 )
 
@@ -107,3 +109,42 @@ def test_invalid_requirements_are_rejected():
         evaluate_input_readiness(_ready_snapshot(), 0, 0.15)
     with pytest.raises(ValueError, match='maximum_sync_delta_sec'):
         evaluate_input_readiness(_ready_snapshot(), 3, float('nan'))
+
+
+def test_only_qualified_target_frames_enter_sync_window():
+    state = SimpleNamespace(
+        _counts={'detections': 0},
+        _detections={
+            'frame_id': '',
+            'target_detection_count': 0,
+            'maximum_target_confidence': None,
+        },
+        _detection_stamps=[],
+        _target_class='person',
+        _minimum_confidence=0.8,
+    )
+
+    def message(stamp, results):
+        return SimpleNamespace(
+            header=SimpleNamespace(
+                frame_id='camera_color_optical_frame',
+                stamp=SimpleNamespace(sec=stamp, nanosec=0),
+            ),
+            detections=[SimpleNamespace(results=results)],
+        )
+
+    below_threshold = SimpleNamespace(
+        hypothesis=SimpleNamespace(class_id='person', score=0.7),
+    )
+    qualified = SimpleNamespace(
+        hypothesis=SimpleNamespace(class_id='person', score=0.9),
+    )
+    LiveInputReadiness._on_detections(state, message(10, []))
+    LiveInputReadiness._on_detections(
+        state, message(11, [below_threshold]))
+    LiveInputReadiness._on_detections(state, message(12, [qualified]))
+
+    assert state._counts['detections'] == 3
+    assert state._detections['target_detection_count'] == 1
+    assert state._detections['maximum_target_confidence'] == 0.9
+    assert state._detection_stamps == [12.0]

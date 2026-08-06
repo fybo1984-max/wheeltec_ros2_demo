@@ -254,8 +254,7 @@ class LiveInputReadiness(Node):
     def _on_detections(self, message: Detection2DArray) -> None:
         self._counts['detections'] += 1
         self._detections['frame_id'] = str(message.header.frame_id)
-        self._detection_stamps.append(_stamp_seconds(message.header.stamp))
-        self._detection_stamps = self._detection_stamps[-200:]
+        target_detected = False
         for detection in message.detections:
             for result in detection.results:
                 hypothesis = result.hypothesis
@@ -263,6 +262,7 @@ class LiveInputReadiness(Node):
                     str(hypothesis.class_id).casefold() == self._target_class
                     and float(hypothesis.score) >= self._minimum_confidence
                 ):
+                    target_detected = True
                     self._detections['target_detection_count'] += 1
                     previous = self._detections[
                         'maximum_target_confidence'
@@ -271,6 +271,11 @@ class LiveInputReadiness(Node):
                     self._detections['maximum_target_confidence'] = (
                         score if previous is None else max(previous, score)
                     )
+        if target_detected:
+            self._detection_stamps.append(
+                _stamp_seconds(message.header.stamp)
+            )
+            self._detection_stamps = self._detection_stamps[-200:]
 
     def _maximum_nearest_sync_delta(self):
         if not self._depth_stamps or not self._detection_stamps:
