@@ -43,6 +43,21 @@ ros2 launch semantic_mask_generator dynamic_semantic_mask.launch.py \
 This command expects an existing map, TF tree, and marker publisher; it does
 not start any of them.
 
+For the physical fragile-goods experiment, the Astra-specific launch connects
+an already running color stream to `aruco_ros` and enables marker input in the
+mask generator:
+
+```bash
+ros2 launch semantic_mask_generator fragile_marker_input.launch.py \
+  enabled:=true marker_size_m:=0.15
+```
+
+It expects an ArUco original-dictionary marker with ID `101`, an existing
+`/map` topic, and a valid transform from `map` to
+`camera_color_optical_frame`. The `marker_size_m` value is the measured outer
+black-square side length; it must match the printed marker. This launch does
+not start the camera, localization, Nav2, a controller, or robot hardware.
+
 The optional loading-zone input uses a map-frame polygon from
 `loading_zone_vertices_m` and a `std_msgs/Bool` state on
 `/semantic/loading_zone_active`. When enabled, `true` overlays the configured
