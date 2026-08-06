@@ -29,6 +29,9 @@ RECORDED_RGBD_TOPICS = [
     '/tf_static',
     '/detections',
 ]
+RECORDED_TF_TOPICS = ['/tf', '/tf_static']
+TF_PRIME_RATE = 10.0
+TF_PRIME_LEAD_SECONDS = 3.0
 _UNIT_ID_PATTERN = re.compile(r'^[a-z0-9][a-z0-9_-]*$')
 
 
@@ -71,7 +74,9 @@ def build_recorded_replay(
         raise ValueError('playback_start_delay_seconds must be nonnegative')
     if playback_start_offset_seconds < 0.0:
         raise ValueError('playback_start_offset_seconds must be nonnegative')
-    if runner_delay_seconds <= playback_start_delay_seconds:
+    if runner_delay_seconds <= (
+        playback_start_delay_seconds + TF_PRIME_LEAD_SECONDS
+    ):
         raise ValueError('runner_delay_seconds must follow playback start')
     bag = inspect_recorded_bag(bag_path, RECORDED_RGBD_TOPICS)
     command_argv = [
@@ -88,19 +93,17 @@ def build_recorded_replay(
             str(float(playback_start_offset_seconds)),
         ])
     command_argv.extend(['--topics', *RECORDED_RGBD_TOPICS])
-    static_tf_command_argv = None
-    if playback_start_offset_seconds > 0.0:
-        static_tf_command_argv = [
-            'ros2',
-            'bag',
-            'play',
-            str(bag_path),
-            '--topics',
-            '/tf_static',
-            '--disable-keyboard-controls',
-            '--wait-for-all-acked',
-            '1000',
-        ]
+    tf_prime_command_argv = [
+        'ros2',
+        'bag',
+        'play',
+        str(bag_path),
+        '--rate',
+        str(TF_PRIME_RATE),
+        '--topics',
+        *RECORDED_TF_TOPICS,
+        '--disable-keyboard-controls',
+    ]
     return {
         'unit_id': unit_id,
         'bag': bag,
@@ -113,7 +116,9 @@ def build_recorded_replay(
             playback_start_offset_seconds
         ),
         'command_argv': command_argv,
-        'static_tf_command_argv': static_tf_command_argv,
+        'tf_prime_command_argv': tf_prime_command_argv,
+        'tf_prime_rate': TF_PRIME_RATE,
+        'tf_prime_lead_seconds': TF_PRIME_LEAD_SECONDS,
         'safety_scope': {
             'controller_started': False,
             'velocity_commands_published': False,

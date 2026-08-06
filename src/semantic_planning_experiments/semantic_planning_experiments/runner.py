@@ -82,6 +82,7 @@ class SemanticPlanningAB(Node):
             'recorded_playback_start_offset_seconds',
             0.0,
         )
+        self.declare_parameter('recorded_tf_preloaded', False)
         self.declare_parameter(
             'producer_detection_active_duration_sec',
             -1.0,
@@ -732,6 +733,12 @@ class SemanticPlanningAB(Node):
                 'recorded_playback_start_offset_seconds': (
                     float(self.get_parameter(
                         'recorded_playback_start_offset_seconds'
+                    ).value)
+                    if recorded_unit_id else None
+                ),
+                'recorded_tf_preloaded': (
+                    bool(self.get_parameter(
+                        'recorded_tf_preloaded'
                     ).value)
                     if recorded_unit_id else None
                 ),

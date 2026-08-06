@@ -100,7 +100,19 @@ def test_replay_builds_exact_safe_command_from_verified_bag(tmp_path: Path):
         '--topics',
         *RECORDED_RGBD_TOPICS,
     ]
-    assert replay['static_tf_command_argv'] is None
+    assert replay['tf_prime_command_argv'] == [
+        'ros2',
+        'bag',
+        'play',
+        str(bag),
+        '--rate',
+        '10.0',
+        '--topics',
+        '/tf',
+        '/tf_static',
+        '--disable-keyboard-controls',
+    ]
+    assert replay['tf_prime_lead_seconds'] == 3.0
     assert replay['bag']['topics'] == {
         topic: 2 for topic in RECORDED_RGBD_TOPICS
     }
@@ -144,7 +156,9 @@ def test_replay_records_nonzero_start_offset(tmp_path: Path):
 
     assert replay['playback_start_offset_seconds'] == 20.0
     assert replay['command_argv'][6:8] == ['--start-offset', '20.0']
-    assert replay['static_tf_command_argv'][4:6] == ['--topics', '/tf_static']
+    assert replay['tf_prime_command_argv'][6:10] == [
+        '--topics', '/tf', '/tf_static', '--disable-keyboard-controls'
+    ]
 
 
 @pytest.mark.parametrize(
@@ -152,6 +166,7 @@ def test_replay_records_nonzero_start_offset(tmp_path: Path):
     [
         (0.0, 2.0, 8.0, 'playback_rate'),
         (1.0, -1.0, 8.0, 'playback_start_delay_seconds'),
+        (1.0, 2.0, 5.0, 'runner_delay_seconds'),
         (1.0, 8.0, 8.0, 'runner_delay_seconds'),
     ],
 )

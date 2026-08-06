@@ -356,9 +356,11 @@ ros2 launch semantic_planning_experiments recorded_rgbd_planner_ab.launch.py \
   output_path:=/tmp/semantic_recorded_rgbd_results/person_near_001.json
 ```
 
-The launch validates the SQLite bag, replays only the six preregistered RGB-D,
-TF, and detection topics, projects detections through the real dynamic mask
-generator, and runs paired disabled/enabled semantic-layer planning. The JSON
+The launch validates the SQLite bag, first preloads that bag's recorded `/tf`
+and `/tf_static` at high rate, then replays only the six preregistered RGB-D,
+TF, and detection topics. This preserves late-written camera transforms before
+projecting detections through the real dynamic mask generator and running
+paired disabled/enabled semantic-layer planning. The JSON
 report includes the independent unit id, recursive bag inventory, actual topic
 counts, mask geometry, both paths, risk-zone crossing, minimum clearance, path
 length, and planning time. It starts no synthetic source; the recorded

@@ -108,13 +108,14 @@ def _start_recorded_pipeline(context, experiment_share, generator_config):
     )
     actions = [generator]
     playback_delay = replay['playback_start_delay_seconds']
-    static_tf_command = replay['static_tf_command_argv']
-    if static_tf_command is not None:
-        actions.append(TimerAction(
-            period=playback_delay,
-            actions=[ExecuteProcess(cmd=static_tf_command, output='screen')],
-        ))
-        playback_delay += 1.0
+    actions.append(TimerAction(
+        period=playback_delay,
+        actions=[ExecuteProcess(
+            cmd=replay['tf_prime_command_argv'],
+            output='screen',
+        )],
+    ))
+    playback_delay += replay['tf_prime_lead_seconds']
     playback = TimerAction(
         period=playback_delay,
         actions=[ExecuteProcess(cmd=replay['command_argv'], output='screen')],
@@ -131,6 +132,7 @@ def _start_recorded_pipeline(context, experiment_share, generator_config):
             'recorded_bag_path': str(bag_path.expanduser().resolve()),
             'recorded_unit_id': unit_id,
             'recorded_playback_start_offset_seconds': str(playback_offset),
+            'recorded_tf_preloaded': 'true',
             'producer_observation_hold_sec': LaunchConfiguration(
                 'observation_hold_sec'
             ),

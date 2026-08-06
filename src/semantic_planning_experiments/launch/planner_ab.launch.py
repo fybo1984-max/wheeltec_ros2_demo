@@ -92,6 +92,7 @@ def generate_launch_description():
     recorded_playback_offset = LaunchConfiguration(
         'recorded_playback_start_offset_seconds'
     )
+    recorded_tf_preloaded = LaunchConfiguration('recorded_tf_preloaded')
     producer_detection_active_duration = LaunchConfiguration(
         'producer_detection_active_duration_sec'
     )
@@ -226,6 +227,7 @@ def generate_launch_description():
             'recorded_unit_id': recorded_unit_id,
             'recorded_playback_start_offset_seconds':
                 recorded_playback_offset,
+            'recorded_tf_preloaded': recorded_tf_preloaded,
             'producer_detection_active_duration_sec':
                 producer_detection_active_duration,
             'producer_observation_hold_sec': producer_observation_hold,
@@ -320,6 +322,11 @@ def generate_launch_description():
             'recorded_playback_start_offset_seconds',
             default_value='0.0',
             description='Recorded bag start offset used for this report.',
+        ),
+        DeclareLaunchArgument(
+            'recorded_tf_preloaded',
+            default_value='false',
+            description='Whether recorded TF was preloaded before replay.',
         ),
         DeclareLaunchArgument(
             'producer_detection_active_duration_sec',
