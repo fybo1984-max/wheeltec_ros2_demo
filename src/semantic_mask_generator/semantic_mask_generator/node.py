@@ -19,6 +19,8 @@ import math
 import time
 
 from aruco_msgs.msg import MarkerArray
+from message_filters import ApproximateTimeSynchronizer
+from message_filters import Subscriber
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
 import rclpy
@@ -64,7 +66,6 @@ class SemanticMaskNode(Node):
         self._declare_parameters()
         self._read_parameters()
 
-        self._depth_message = None
         self._camera_info = None
         self._map_info = None
         self._map_frame = ''
@@ -100,18 +101,24 @@ class SemanticMaskNode(Node):
             self._camera_info_callback,
             qos_profile_sensor_data,
         )
-        self.create_subscription(
+        self._depth_subscriber = Subscriber(
+            self,
             Image,
             self._depth_topic,
-            self._depth_callback,
-            qos_profile_sensor_data,
+            qos_profile=qos_profile_sensor_data,
         )
-        self.create_subscription(
+        self._detections_subscriber = Subscriber(
+            self,
             Detection2DArray,
             self._detections_topic,
-            self._detections_callback,
-            qos_profile_sensor_data,
+            qos_profile=qos_profile_sensor_data,
         )
+        self._rgbd_synchronizer = ApproximateTimeSynchronizer(
+            [self._depth_subscriber, self._detections_subscriber],
+            queue_size=120,
+            slop=self._maximum_sync_delta,
+        )
+        self._rgbd_synchronizer.registerCallback(self._detections_callback)
         if self._marker_enabled:
             self.create_subscription(
                 MarkerArray,
@@ -329,10 +336,11 @@ class SemanticMaskNode(Node):
     def _camera_info_callback(self, message: CameraInfo) -> None:
         self._camera_info = message
 
-    def _depth_callback(self, message: Image) -> None:
-        self._depth_message = message
-
-    def _detections_callback(self, message: Detection2DArray) -> None:
+    def _detections_callback(
+        self,
+        depth_message: Image,
+        message: Detection2DArray,
+    ) -> None:
         if not self._enabled:
             return
         if not self._depth_is_registered:
@@ -341,7 +349,7 @@ class SemanticMaskNode(Node):
                 'Skipping detections because registered depth is not confirmed.',
             )
             return
-        if self._depth_message is None or self._camera_info is None:
+        if self._camera_info is None:
             self._warn_throttled(
                 'missing_rgbd',
                 'Waiting for depth image and color CameraInfo.',
@@ -349,7 +357,7 @@ class SemanticMaskNode(Node):
             return
 
         detection_stamp = _stamp_seconds(message.header.stamp)
-        depth_stamp = _stamp_seconds(self._depth_message.header.stamp)
+        depth_stamp = _stamp_seconds(depth_message.header.stamp)
         if abs(detection_stamp - depth_stamp) > self._maximum_sync_delta:
             self._warn_throttled(
                 'sync',
@@ -368,7 +376,7 @@ class SemanticMaskNode(Node):
                 f'detection frame {source_frame!r}.',
             )
             return
-        depth_frame = self._depth_message.header.frame_id
+        depth_frame = depth_message.header.frame_id
         if depth_frame and depth_frame != source_frame:
             self._warn_throttled(
                 'depth_frame',
@@ -379,12 +387,12 @@ class SemanticMaskNode(Node):
 
         try:
             depth_m = decode_depth_image(
-                self._depth_message.data,
-                self._depth_message.encoding,
-                self._depth_message.width,
-                self._depth_message.height,
-                self._depth_message.step,
-                self._depth_message.is_bigendian,
+                depth_message.data,
+                depth_message.encoding,
+                depth_message.width,
+                depth_message.height,
+                depth_message.step,
+                depth_message.is_bigendian,
             )
         except ValueError as error:
             self._warn_throttled('depth_decode', str(error))
@@ -392,8 +400,8 @@ class SemanticMaskNode(Node):
 
         camera_info = self._camera_info
         if (
-            camera_info.width != self._depth_message.width
-            or camera_info.height != self._depth_message.height
+            camera_info.width != depth_message.width
+            or camera_info.height != depth_message.height
         ):
             self._warn_throttled(
                 'dimensions',
