@@ -162,7 +162,7 @@ class SemanticMaskNode(Node):
         self.declare_parameter('mask_topic', '/semantic_mask')
         self.declare_parameter('target_frame', 'map')
         self.declare_parameter('depth_is_registered', False)
-        self.declare_parameter('minimum_confidence', 0.5)
+        self.declare_parameter('minimum_confidence', 0.55)
         self.declare_parameter('minimum_depth_m', 0.3)
         self.declare_parameter('maximum_depth_m', 8.0)
         self.declare_parameter('depth_window_radius_px', 3)

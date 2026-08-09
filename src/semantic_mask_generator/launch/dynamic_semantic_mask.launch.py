@@ -42,7 +42,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'depth_is_registered',
-            default_value='false',
+            default_value='true',
             description='Confirm depth pixels are aligned to the detection image.',
         ),
         DeclareLaunchArgument(

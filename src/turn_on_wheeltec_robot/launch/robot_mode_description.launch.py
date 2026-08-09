@@ -56,14 +56,6 @@ def spawn_robot_nodes(context, *args, **kwargs):
             arguments=[*map(str, model_cfg['base_to_laser']), 'base_footprint', 'laser'],
         ),
 
-        # base → camera
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='base_to_camera',
-            arguments=[*map(str, model_cfg['base_to_camera']), 'base_footprint', 'camera_link'],
-        ),
-        
         # base → link
         Node(
             package='tf2_ros',
@@ -87,6 +79,20 @@ def spawn_robot_nodes(context, *args, **kwargs):
             arguments=[*map(str, model_cfg['base_to_radar']), 'base_footprint', 'radar'],
         ),
     ]
+
+    # senior_akm carries the calibrated Astra mount in its URDF fixed joint.
+    # Publishing this legacy transform as well gives camera_link two parents.
+    if car_mode != 'senior_akm':
+        actions.append(Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_to_camera',
+            arguments=[
+                *map(str, model_cfg['base_to_camera']),
+                'base_footprint',
+                'camera_link',
+            ],
+        ))
     
     return actions
 
@@ -117,4 +123,3 @@ def generate_launch_description():
         # 2. 用 OpaqueFunction 在运行时解析 yaml 并构造节点
         OpaqueFunction(function=spawn_robot_nodes)
     ])
-

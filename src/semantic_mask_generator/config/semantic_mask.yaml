@@ -7,8 +7,8 @@ semantic_mask_generator:
     map_topic: /map
     mask_topic: /semantic_mask
     target_frame: map
-    depth_is_registered: false
-    minimum_confidence: 0.5
+    depth_is_registered: true
+    minimum_confidence: 0.55
     minimum_depth_m: 0.3
     maximum_depth_m: 8.0
     depth_window_radius_px: 3

@@ -300,8 +300,8 @@
     name="camera_joint"
     type="fixed">
     <origin
-      xyz="0.165778518918356 0.000945202408300414 0.089704"
-      rpy="0 0 0" />
+      xyz="0.16578 0.00095 0.0474"
+      rpy="0 -0.376226 0.002791" />
     <parent
       link="base_link" />
     <child

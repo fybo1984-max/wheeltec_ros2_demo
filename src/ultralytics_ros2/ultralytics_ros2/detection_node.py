@@ -55,7 +55,9 @@ class YOLODetector(Node):
             '/semantic/detected_image',
         )
         self.declare_parameter('device', '0')
-        self.declare_parameter('conf_threshold', 0.5)
+        self.declare_parameter('imgsz', 640)
+        self.declare_parameter('half', False)
+        self.declare_parameter('conf_threshold', 0.55)
         self.declare_parameter('class_names', ['person'])
         self.declare_parameter('publish_annotated_image', True)
 
@@ -65,6 +67,10 @@ class YOLODetector(Node):
         if not model_path.is_file():
             raise ValueError(f'YOLO model file does not exist: {model_path}')
         self._device = str(self.get_parameter('device').value).strip()
+        self._image_size = int(self.get_parameter('imgsz').value)
+        if self._image_size <= 0:
+            raise ValueError('imgsz must be positive')
+        self._half = bool(self.get_parameter('half').value)
         self._confidence = float(
             self.get_parameter('conf_threshold').value
         )
@@ -98,6 +104,7 @@ class YOLODetector(Node):
         self.get_logger().info(
             f'person detector ready; model={model_path}; '
             f'device={self._device or "auto"}; '
+            f'imgsz={self._image_size}; half={self._half}; '
             f'classes={self._class_names}'
         )
 
@@ -109,6 +116,8 @@ class YOLODetector(Node):
         options = {
             'source': image,
             'conf': self._confidence,
+            'imgsz': self._image_size,
+            'half': self._half,
             'verbose': False,
         }
         if self._device:

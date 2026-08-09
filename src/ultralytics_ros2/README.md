@@ -3,9 +3,10 @@
 This package converts Ultralytics detections to
 `vision_msgs/msg/Detection2DArray` for `semantic_mask_generator`. The default
 contract subscribes to Astra color images on `/camera/color/image_raw`, keeps
-only the standard `person` class at confidence 0.5 or higher, and publishes
+only the standard `person` class at confidence 0.55 or higher, and publishes
 `/detections`. Image timestamps and `camera_color_optical_frame` metadata are
-preserved for registered-depth projection.
+preserved for registered-depth projection. The formal defaults explicitly use
+an Ultralytics input size of 640 and PyTorch FP32 inference (`half:=false`).
 
 The launch file does not start the camera, Nav2, or the robot:
 

@@ -36,6 +36,8 @@ def generate_launch_description() -> LaunchDescription:
     detections_topic = LaunchConfiguration('detections_topic')
     annotated_topic = LaunchConfiguration('annotated_image_topic')
     device = LaunchConfiguration('device')
+    image_size = LaunchConfiguration('imgsz')
+    half = LaunchConfiguration('half')
     confidence = LaunchConfiguration('conf_threshold')
     publish_annotated = LaunchConfiguration('publish_annotated_image')
     detector = Node(
@@ -49,6 +51,8 @@ def generate_launch_description() -> LaunchDescription:
             'detections_topic': detections_topic,
             'annotated_image_topic': annotated_topic,
             'device': ParameterValue(device, value_type=str),
+            'imgsz': ParameterValue(image_size, value_type=int),
+            'half': ParameterValue(half, value_type=bool),
             'conf_threshold': ParameterValue(
                 confidence,
                 value_type=float,
@@ -75,7 +79,9 @@ def generate_launch_description() -> LaunchDescription:
             default_value='/semantic/detected_image',
         ),
         DeclareLaunchArgument('device', default_value='0'),
-        DeclareLaunchArgument('conf_threshold', default_value='0.5'),
+        DeclareLaunchArgument('imgsz', default_value='640'),
+        DeclareLaunchArgument('half', default_value='false'),
+        DeclareLaunchArgument('conf_threshold', default_value='0.55'),
         DeclareLaunchArgument(
             'publish_annotated_image',
             default_value='true',

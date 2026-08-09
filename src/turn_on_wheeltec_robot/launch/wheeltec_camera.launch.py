@@ -94,7 +94,7 @@ def generate_launch_description():
             description='Which camera mode to launch'),
         DeclareLaunchArgument(
             'depth_registration',
-            default_value='false',
+            default_value='true',
             description='Align depth pixels to the color camera image'),
         OpaqueFunction(function=spawn_camera_nodes),
     ])
