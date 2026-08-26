@@ -45,11 +45,11 @@ amcl:
     first_map_only: False
 
     # Initial Pose
-    set_initial_pose: True #默认使用最近确认的实际位置；人工搬动车后用2D Pose Estimate修正
-    initial_pose.x: -0.3289505491
-    initial_pose.y: -1.9592391763
+    set_initial_pose: True #新场地地面标记点；人工搬动车后用2D Pose Estimate修正
+    initial_pose.x: 2.402
+    initial_pose.y: 2.217
     initial_pose.z: 0.0
-    initial_pose.yaw: -3.0988669847
+    initial_pose.yaw: -2.964
     #Amcl参数解释参考：https://docs.nav2.org/configuration/packages/configuring-amcl.html
 
 amcl_map_client:

@@ -56,6 +56,18 @@ def generate_launch_description():
                 [wheeltec_launch_dir, '/turn_on_wheeltec_robot.launch.py']),
             launch_arguments={'carto_slam': 'false','robot_nav':'true'}.items(),
         ),
+        Node(
+            package='wheeltec_slam_toolbox',
+            executable='odom_mapping_corrector.py',
+            name='odom_mapping_corrector',
+            output='screen',
+            parameters=[{
+                'yaw_scale_positive': 0.9735,
+                'yaw_scale_negative': 0.9130,
+                'linear_velocity_variance': 0.01,
+                'yaw_velocity_variance': 0.005,
+            }],
+        ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                 [wheeltec_launch_dir, '/wheeltec_lidar.launch.py']),

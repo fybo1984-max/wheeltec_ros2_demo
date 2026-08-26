@@ -23,7 +23,7 @@ def generate_launch_description():
 
     map_dir = os.path.join(wheeltec_nav_dir, 'map')
     map_file = LaunchConfiguration('map', default=os.path.join(
-        map_dir, 'large_loop_final.yaml'))
+        map_dir, 'warehouse_formal_20260826_walls.yaml'))
 
     param_dir = os.path.join(wheeltec_nav_dir, 'param','wheeltec_params')
     param_file = LaunchConfiguration('params', default=os.path.join(
