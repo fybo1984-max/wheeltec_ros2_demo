@@ -1,0 +1,35 @@
+schema_version: 1
+frame_id: map
+base_map: warehouse_formal_20260826.pgm
+base_map_sha256: 03b1af3185c6e7a2985b53d4fb1b8a44974915fdccd95d56def6c7c272d57c70
+output_map: warehouse_formal_20260826_walls.pgm
+output_map_sha256: 3cfe128c5ac5cf0e97bfa968c9cb61287461c91f323b88ff7ad7a0e7c3c39770
+resolution_m_per_cell: 0.05
+wall_width_m: 0.15
+wall_width_cells: 3
+occupied_value: 0
+newly_occupied_cells: 1581
+newly_occupied_area_m2: 3.9525
+walls:
+  - id: wall_1
+    start_xy_m: [7.00, -1.93]
+    end_xy_m: [7.97, -17.80]
+  - id: wall_2
+    start_xy_m: [7.05, -2.00]
+    end_xy_m: [13.64, -1.76]
+  - id: wall_3
+    start_xy_m: [5.09, -1.23]
+    end_xy_m: [3.60, -1.34]
+  - id: wall_4
+    start_xy_m: [-0.94, -10.69]
+    end_xy_m: [1.47, -10.67]
+initial_pose_candidate:
+  measurement: map_to_base_footprint_at_mapping_end
+  x_m: 2.402
+  y_m: 2.217
+  yaw_rad: -2.964
+  yaw_deg: -169.829
+provenance:
+  mapped_at_local_date: 2026-08-26
+  wall_coordinates_confirmed_by_user: true
+  base_map_preserved: true
