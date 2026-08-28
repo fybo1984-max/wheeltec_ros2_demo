@@ -7,6 +7,7 @@
 - `main`：当前已验证的稳定演示版本。
 - `demo-stable`：与稳定演示提交完全一致，原则上不直接开发。
 - `innovation`：后续创新开发分支。
+- `ros2-technology`：不影响稳定版的 ROS 2 系统优化分支。
 - `demo-stable-2026-07-30`：当前演示版本的固定标签。
 
 ## 当前演示能力
@@ -25,3 +26,5 @@
 `build/`、`install/` 和 `log/` 没有上传，因为其中包含工作空间绝对路径，复制到其他目录会引起 ROS 2 包索引和动态库路径错误。云服务密钥、设备账号配置以及大型厂商模型/SDK 二进制文件也不会上传。
 
 恢复、编译和私密配置说明见 [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md)。
+
+Ros2_Technology 独立工作空间说明见 [ROS2_TECHNOLOGY_WORKSPACE.md](ROS2_TECHNOLOGY_WORKSPACE.md)。
