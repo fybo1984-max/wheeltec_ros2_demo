@@ -84,9 +84,12 @@ ros2 launch largemodel largemodel_control.launch.py \
 - 语义 costmap 插件：10 个 CTest 全部通过，其中 16 个行为测试通过。
 - 动态语义 mask：21 项测试通过，覆盖投影、衰减、半径缩放、标记输入和装卸区
   栅格化行为。
-- 规划器级 A/B 实验包：134 项测试通过，其中 131 项地图坐标、动态栅格转换、
-  路径指标、重复试验统计、论文 manifest、结果验收和成果导出行为测试
-  通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
+- 规划器级 A/B 实验包：141 项测试通过，其中 138 项地图坐标、动态栅格转换、
+  路径指标、重复试验统计、论文 manifest、结果验收、成果导出和延迟审计行为
+  测试通过；专用 launch 不含 controller、BT、AMCL、传感器或底盘节点。
+- 被动延迟审计工具可记录 image、detection、mask、global costmap、plan、
+  `cmd_vel` 和 odometry 的 ROS/单调接收时刻；只有相同图像 header 的
+  image-to-detection 间隔可作为管线代理，其余近邻关联不声明因果延迟。
 - 默认模板路线的两次离线规划得到完全相同的路径几何：基线穿越语义区约
   7.50 m，启用语义层后穿越为 0，路径增加约 3.26 m，语义边界最小间距约
   0.64 m。该数字只是工具链验证，不是论文正式实验结果。
