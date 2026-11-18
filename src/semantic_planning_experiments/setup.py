@@ -44,6 +44,8 @@ setup(
             'semantic_planning_experiments.collection_preflight:main',
             'semantic_live_input_readiness = '
             'semantic_planning_experiments.input_readiness:main',
+            'semantic_latency_audit = '
+            'semantic_planning_experiments.latency_audit:main',
             'semantic_experiment_evaluate = '
             'semantic_planning_experiments.experiment_evaluate:main',
             'semantic_experiment_plan = '

@@ -451,3 +451,24 @@ audit and cause a nonzero exit.
 Reports default to `/tmp` and must not be committed as claimed research
 results until the selected map, mask, and experiment region have been
 validated.
+
+## Passive latency audit
+
+Record message headers and ROS receipt times without launching hardware or
+publishing commands:
+
+```bash
+ros2 run semantic_planning_experiments semantic_latency_audit --ros-args \
+  -p duration_sec:=60.0 \
+  -p output_directory:=/tmp/semantic_latency_audit_run_001
+```
+
+The recorder observes image, detection, semantic mask, global costmap, plan,
+`cmd_vel`, and odometry topics. It writes ROS and monotonic receipt times to
+`latency_events.csv` plus
+`latency_summary.json`. Image-to-detection receipt gaps require matching source
+header stamps. Other pairings are explicitly labelled nearest-preceding
+temporal associations and are not valid causal end-to-end latency claims.
+`geometry_msgs/Twist` has no header, so the audit records only its ROS receipt
+time. Use a new output directory for every independent run; existing evidence
+is never overwritten.
