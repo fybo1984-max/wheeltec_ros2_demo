@@ -120,7 +120,7 @@ controller_server:
       vy_std: 0.0       #Vy 的抽样标准差
       wz_std: 0.25       #Wz（角速度）的抽样标准差
       vx_max: 0.5       #目标最大前进速度（米/秒）
-      vx_min: -0.5      #目标最大反向速度（米/秒）
+      vx_min: 0.0       #正式语义实验仅允许前进，避免Reeds-Shepp倒车切换造成轨迹失稳
       vy_max: 0.0       #如果使用Omni运动模型，目标最大横向速度（m/s）
       wz_max: 1.2       #最大旋转速度（弧度/秒）
       ax_max: 1.5
@@ -129,7 +129,7 @@ controller_server:
       az_max: 1.5
       iteration_count: 1 #迭代次数
       prune_distance: 0.5 #1.5#路径上距离机器人最近点的距离（米）
-      enforce_path_inversion: true #遵守Reeds-Shepp路径的前进/倒车切换，提前完成末端进场
+      enforce_path_inversion: false #DUBIN前进路径不包含前进/倒车切换点
       inversion_xy_tolerance: 0.25
       inversion_yaw_tolerance: 0.40
       transform_tolerance: 0.1 #使用 TF（s）进行数据转换的时间容差
@@ -299,6 +299,7 @@ global_costmap:
         mask_source: "file"
         map_yaml_path: "$(find-pkg-share wheeltec_nav2)/map/large_loop_semantic_mask_example.yaml"
         mask_topic: "/semantic_mask"
+        mask_timeout_sec: 2.0
         cost_mode: "fuzzy"
         mask_cost_value: 125
         task_urgency: 0
@@ -345,7 +346,7 @@ planner_server: #规划器服务器参数
       max_iterations: 1000000             # 失败前搜索的最大迭代次数（以防无法到达），设置为 -1 以禁用
       max_on_approach_iterations: 1000    # 在公差范围内尝试达到目标的最大迭代次数，仅限 2D
       max_planning_time: 5.0              # 规划器进行规划、平滑和上采样的最大时间（以秒为单位）。
-      motion_model_for_search: "REEDS_SHEPP"    # 2D Moore, Von Neumann; Hybrid Dubin, Redds-Shepp; State Lattice set internally
+      motion_model_for_search: "DUBIN"          #正式语义实验使用前进-only Hybrid-A*
       cost_travel_multiplier: 2.0         #应用于搜索以避开高成本区域的成本乘数。
       # For 2D: Cost multiplier to apply to search to steer away from high cost areas. Larger values will place in the center of aisles more exactly (if non-`FREE` cost potential field exists) but take slightly longer to compute. To optimize for speed, a value of 1.0 is reasonable. A reasonable tradeoff value is 2.0. A value of 0.0 effective disables steering away from obstacles and acts like a naive binary search A*.
       angle_quantization_bins: 72         #用于 SE2 搜索的角度箱数量。这可以是任何偶数，但好的基线是 64 或 72（以 5 度为增量）
@@ -355,8 +356,7 @@ planner_server: #规划器服务器参数
       analytic_expansion_max_cost: 200.0
       minimum_turning_radius: 0.80        #最小转弯半径
       # For Hybrid/Lattice nodes: minimum turning radius in m of path / vehicle
-      reverse_penalty: 1.5                #如果反向搜索，则对 SE2 节点应用启发式惩罚。
-      # For Reeds-Shepp model: penalty to apply if motion is reversing, must be => 1
+      reverse_penalty: 1.5                #DUBIN模式不使用，保留Nav2合法默认值
       change_penalty: 0.0                 #如果在搜索中改变方向（例如从左到右），则对 SE2 节点应用启发式惩罚。
       # For Hybrid nodes: penalty to apply if motion is changing directions, must be >= 0
       non_straight_penalty: 1.20          #如果在非直线方向上搜索，则对 SE2 节点应用启发式惩罚。

@@ -35,6 +35,7 @@ semantic_mask_generator:
     loading_zone_enabled: false
     loading_zone_active_topic: /semantic/loading_zone_active
     loading_zone_initial_active: false
+    loading_state_timeout_sec: 2.0
     loading_zone_risk_value: 85
     # Map-frame polygon x/y pairs; replace with measured experiment coordinates.
     loading_zone_vertices_m: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

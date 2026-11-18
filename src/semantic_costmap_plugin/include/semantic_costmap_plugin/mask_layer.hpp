@@ -18,12 +18,14 @@
 #define SEMANTIC_COSTMAP_PLUGIN__MASK_LAYER_HPP_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "nav2_costmap_2d/costmap_layer.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
+#include "rclcpp/time.hpp"
 #include "semantic_costmap_plugin/fuzzy_inference_engine.hpp"
 #include "semantic_costmap_plugin/mask_inflator.hpp"
 #include "std_msgs/msg/u_int8.hpp"
@@ -62,6 +64,7 @@ private:
     const nav_msgs::msg::OccupancyGrid & mask,
     std::string & reason) const;
   void maskCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr message);
+  bool expireStaleTopicMask();
   void computeMaskBounds();
   void applyMask(
     nav2_costmap_2d::Costmap2D & master_grid,
@@ -78,6 +81,7 @@ private:
   std::string mask_topic_;
   std::string cost_mode_;
   unsigned char mask_cost_value_;
+  double mask_timeout_sec_;
   bool map_loaded_;
   bool fuzzy_recalculation_needed_;
   int task_urgency_;
@@ -90,6 +94,7 @@ private:
   int mask_max_j_;
   unsigned int publish_divisor_;
   unsigned int update_count_;
+  std::optional<rclcpp::Time> last_mask_received_time_;
   std::unique_ptr<FuzzyInferenceEngine> fuzzy_engine_;
   std::unique_ptr<MaskInflator> inflator_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr mask_subscription_;

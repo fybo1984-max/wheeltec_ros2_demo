@@ -44,6 +44,7 @@ from vision_msgs.msg import Detection2DArray
 from semantic_mask_generator.core import build_marker_profile_map
 from semantic_mask_generator.core import decode_depth_image
 from semantic_mask_generator.core import GridSpec
+from semantic_mask_generator.core import loading_zone_state_is_active
 from semantic_mask_generator.core import median_depth
 from semantic_mask_generator.core import ObservationStore
 from semantic_mask_generator.core import project_pixel
@@ -76,6 +77,10 @@ class SemanticMaskNode(Node):
         )
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
+        self._loading_zone_last_update_sec = (
+            self.get_clock().now().nanoseconds * 1e-9
+            if self._loading_zone_active else None
+        )
 
         map_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -193,6 +198,7 @@ class SemanticMaskNode(Node):
             '/semantic/loading_zone_active',
         )
         self.declare_parameter('loading_zone_initial_active', False)
+        self.declare_parameter('loading_state_timeout_sec', 2.0)
         self.declare_parameter('loading_zone_risk_value', 85)
         self.declare_parameter(
             'loading_zone_vertices_m',
@@ -258,6 +264,9 @@ class SemanticMaskNode(Node):
             value('loading_zone_active_topic')
         )
         self._loading_zone_active = bool(value('loading_zone_initial_active'))
+        self._loading_state_timeout_sec = float(
+            value('loading_state_timeout_sec')
+        )
         self._loading_zone_risk_value = int(value('loading_zone_risk_value'))
         flat_vertices = [
             float(item) for item in value('loading_zone_vertices_m')
@@ -273,6 +282,11 @@ class SemanticMaskNode(Node):
         )
         if not 1 <= self._loading_zone_risk_value <= 100:
             raise ValueError('loading_zone_risk_value must be in [1, 100]')
+        if (
+            not math.isfinite(self._loading_state_timeout_sec)
+            or self._loading_state_timeout_sec <= 0.0
+        ):
+            raise ValueError('loading_state_timeout_sec must be positive')
         if self._loading_zone_enabled:
             rasterize_polygon(
                 GridSpec(1, 1, 1.0, 0.0, 0.0),
@@ -551,6 +565,9 @@ class SemanticMaskNode(Node):
 
     def _loading_zone_callback(self, message: Bool) -> None:
         self._loading_zone_active = bool(message.data)
+        self._loading_zone_last_update_sec = (
+            self.get_clock().now().nanoseconds * 1e-9
+        )
 
     def _publish_mask(self) -> None:
         if not self._enabled or self._map_info is None:
@@ -565,7 +582,21 @@ class SemanticMaskNode(Node):
             origin_y=self._map_info.origin.position.y,
         )
         grid = rasterize_observations(spec, observations, now)
-        if self._loading_zone_enabled and self._loading_zone_active:
+        loading_zone_active = False
+        if self._loading_zone_enabled:
+            loading_zone_active = loading_zone_state_is_active(
+                self._loading_zone_active,
+                self._loading_zone_last_update_sec,
+                now,
+                self._loading_state_timeout_sec,
+            )
+            if self._loading_zone_active and not loading_zone_active:
+                self._loading_zone_active = False
+                self._warn_throttled(
+                    'loading_state_timeout',
+                    'Loading-zone state heartbeat timed out; clearing zone.',
+                )
+        if loading_zone_active:
             loading_zone = rasterize_polygon(
                 spec,
                 self._loading_zone_vertices,

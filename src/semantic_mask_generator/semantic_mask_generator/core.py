@@ -76,6 +76,25 @@ def scale_risk_profile(
     return scaled
 
 
+def loading_zone_state_is_active(
+    active: bool,
+    last_update_sec: float | None,
+    now_sec: float,
+    timeout_sec: float,
+) -> bool:
+    """Return whether a loading-zone heartbeat is active and still fresh."""
+    if not math.isfinite(now_sec):
+        raise ValueError('current time must be finite')
+    if not math.isfinite(timeout_sec) or timeout_sec <= 0.0:
+        raise ValueError('loading state timeout must be positive')
+    if not active or last_update_sec is None:
+        return False
+    if not math.isfinite(last_update_sec):
+        raise ValueError('loading state update time must be finite')
+    age = now_sec - last_update_sec
+    return age < 0.0 or age <= timeout_sec
+
+
 @dataclass
 class RiskObservation:
     """Map-frame semantic observation with deterministic expiration."""

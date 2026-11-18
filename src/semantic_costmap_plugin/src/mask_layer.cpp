@@ -32,6 +32,7 @@ namespace semantic_costmap_plugin
 MaskLayer::MaskLayer()
 : cost_mode_("fuzzy"),
   mask_cost_value_(125),
+  mask_timeout_sec_(0.0),
   map_loaded_(false),
   fuzzy_recalculation_needed_(true),
   task_urgency_(0),
@@ -59,6 +60,7 @@ void MaskLayer::onInitialize()
   declareParameter("mask_source", rclcpp::ParameterValue("file"));
   declareParameter("map_yaml_path", rclcpp::ParameterValue(""));
   declareParameter("mask_topic", rclcpp::ParameterValue("/semantic_mask"));
+  declareParameter("mask_timeout_sec", rclcpp::ParameterValue(0.0));
   declareParameter("cost_mode", rclcpp::ParameterValue("fuzzy"));
   declareParameter("mask_cost_value", rclcpp::ParameterValue(125));
   declareParameter("task_urgency", rclcpp::ParameterValue(0));
@@ -76,6 +78,8 @@ void MaskLayer::onInitialize()
   mask_source_ = node->get_parameter(name_ + ".mask_source").as_string();
   map_yaml_path_ = node->get_parameter(name_ + ".map_yaml_path").as_string();
   mask_topic_ = node->get_parameter(name_ + ".mask_topic").as_string();
+  mask_timeout_sec_ =
+    node->get_parameter(name_ + ".mask_timeout_sec").as_double();
   cost_mode_ = node->get_parameter(name_ + ".cost_mode").as_string();
   const auto mask_cost = node->get_parameter(name_ + ".mask_cost_value").as_int();
   const auto task_urgency = node->get_parameter(name_ + ".task_urgency").as_int();
@@ -98,6 +102,9 @@ void MaskLayer::onInitialize()
   if (mask_source_ == "topic" && mask_topic_.empty()) {
     throw std::runtime_error(
             "mask_layer.mask_topic must not be empty for topic source");
+  }
+  if (mask_timeout_sec_ < 0.0) {
+    throw std::runtime_error("mask_layer.mask_timeout_sec must be nonnegative");
   }
   if (
     cost_mode_ != "fuzzy" &&
@@ -138,8 +145,7 @@ void MaskLayer::onInitialize()
     master->cellDistance(inflation_radius),
     scaling_factor,
     inflate_unknown,
-    master->getResolution(),
-    mask_cost_value_);
+    master->getResolution());
 
   fuzzy_engine_->setTaskUrgency(task_urgency_);
   fuzzy_engine_->setAvoidanceLevel(avoidance_level_);
@@ -289,8 +295,41 @@ void MaskLayer::maskCallback(
   mask_ = *message;
   inverse_mask_resolution_ = 1.0 / mask_.info.resolution;
   map_loaded_ = true;
+  const auto node = node_.lock();
+  if (node) {
+    last_mask_received_time_ = node->now();
+  }
   mask_bounds_cached_ = false;
   current_ = true;
+}
+
+bool MaskLayer::expireStaleTopicMask()
+{
+  if (
+    mask_source_ != "topic" || mask_timeout_sec_ <= 0.0 ||
+    !map_loaded_ || !last_mask_received_time_.has_value())
+  {
+    return false;
+  }
+  const auto node = node_.lock();
+  if (!node) {
+    return false;
+  }
+  const double age = (node->now() - *last_mask_received_time_).seconds();
+  if (age < 0.0 || age <= mask_timeout_sec_) {
+    return false;
+  }
+
+  resetMaps();
+  map_loaded_ = false;
+  mask_bounds_cached_ = false;
+  last_mask_received_time_.reset();
+  current_ = true;
+  RCLCPP_WARN(
+    logger_,
+    "Semantic mask on %s is stale (age %.3f s, timeout %.3f s); clearing layer",
+    mask_topic_.c_str(), age, mask_timeout_sec_);
+  return true;
 }
 
 void MaskLayer::updateBounds(
@@ -303,7 +342,8 @@ void MaskLayer::updateBounds(
   double * max_y)
 {
   std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*getMutex());
-  if (!enabled_ || !map_loaded_) {
+  const bool expired = expireStaleTopicMask();
+  if (!expired && (!enabled_ || !map_loaded_)) {
     return;
   }
 
@@ -449,8 +489,7 @@ void MaskLayer::applyMask(
   if (effective_cost != nav2_costmap_2d::FREE_SPACE) {
     inflator_->inflateCosts(
       costmap_, start_i, start_j, end_i, end_j,
-      master_grid.getSizeInCellsX(), master_grid.getSizeInCellsY(),
-      effective_cost);
+      master_grid.getSizeInCellsX(), master_grid.getSizeInCellsY());
   }
   for (int j = start_j; j < end_j; ++j) {
     for (int i = start_i; i < end_i; ++i) {
@@ -518,6 +557,15 @@ rcl_interfaces::msg::SetParametersResult MaskLayer::onParametersChanged(
         result.reason = "mask_layer.avoidance_level must be a double in [0, 100]";
         return result;
       }
+    } else if (parameter.get_name() == name_ + ".mask_timeout_sec") {
+      if (
+        parameter.get_type() != rclcpp::ParameterType::PARAMETER_DOUBLE ||
+        parameter.as_double() < 0.0)
+      {
+        result.successful = false;
+        result.reason = "mask_layer.mask_timeout_sec must be a nonnegative double";
+        return result;
+      }
     }
   }
 
@@ -533,6 +581,8 @@ rcl_interfaces::msg::SetParametersResult MaskLayer::onParametersChanged(
     } else if (parameter.get_name() == name_ + ".avoidance_level") {
       avoidance_level_ = parameter.as_double();
       fuzzy_recalculation_needed_ = true;
+    } else if (parameter.get_name() == name_ + ".mask_timeout_sec") {
+      mask_timeout_sec_ = parameter.as_double();
     }
   }
   return result;

@@ -17,7 +17,7 @@ planner_server:
       max_iterations: 1000000
       max_on_approach_iterations: 1000
       max_planning_time: 10.0
-      motion_model_for_search: "REEDS_SHEPP"
+      motion_model_for_search: "DUBIN"
       cost_travel_multiplier: 2.0
       angle_quantization_bins: 72
       analytic_expansion_ratio: 3.5
@@ -57,6 +57,7 @@ global_costmap:
         mask_source: "file"
         map_yaml_path: MASK_YAML_PATH
         mask_topic: "/semantic_mask"
+        mask_timeout_sec: 0.0
         cost_mode: "fuzzy"
         mask_cost_value: 125
         task_urgency: 0

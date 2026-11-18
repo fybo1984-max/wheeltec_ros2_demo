@@ -20,10 +20,20 @@ Operational semantic navigation keeps the default soft `fuzzy` mode
 (`0..252`). `lethal` exists only as a controlled experimental baseline. The
 existing Nav2 planner and controller remain unchanged.
 
+Semantic inflation preserves each source cell's own post-policy cost. Mixed
+high- and low-risk regions therefore expand independently, and overlapping
+inflated costs are fused by their maximum rather than promoting every class to
+the highest source value.
+
 `mask_source` selects either a Nav2 map YAML (`file`) or a live
 `nav_msgs/OccupancyGrid` (`topic`). Topic values in `[1, 100]` are scaled
 proportionally to `mask_cost_value`, so different semantic classes can retain
 different soft-risk strengths.
+
+For a live topic, `mask_timeout_sec` clears the layer when no new mask arrives
+within the configured receipt-time window. The WHEELTEC runtime uses `2.0 s`.
+Set it to `0.0` only for static, latched replay inputs that intentionally do
+not publish a heartbeat.
 
 ## WHEELTEC integration
 

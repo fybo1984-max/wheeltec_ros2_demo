@@ -17,23 +17,8 @@
 #ifndef SEMANTIC_COSTMAP_PLUGIN__MASK_INFLATOR_HPP_
 #define SEMANTIC_COSTMAP_PLUGIN__MASK_INFLATOR_HPP_
 
-#include <cstddef>
-#include <utility>
-#include <vector>
-
 namespace semantic_costmap_plugin
 {
-
-struct CellData
-{
-  CellData(unsigned int x, unsigned int y, unsigned int source_x, unsigned int source_y)
-  : x(x), y(y), source_x(source_x), source_y(source_y) {}
-
-  unsigned int x;
-  unsigned int y;
-  unsigned int source_x;
-  unsigned int source_y;
-};
 
 class MaskInflator
 {
@@ -42,8 +27,7 @@ public:
     unsigned int cell_radius,
     double cost_scaling_factor,
     bool inflate_unknown,
-    double resolution,
-    unsigned char base_cost);
+    double resolution);
 
   void inflateCosts(
     unsigned char * costmap,
@@ -52,40 +36,15 @@ public:
     int max_i,
     int max_j,
     unsigned int size_x,
-    unsigned int size_y,
-    unsigned char base_cost);
+    unsigned int size_y);
 
 private:
-  unsigned char computeCost(double distance) const;
-  double distanceLookup(
-    unsigned int x, unsigned int y,
-    unsigned int source_x, unsigned int source_y) const;
-  unsigned char costLookup(
-    unsigned int x, unsigned int y,
-    unsigned int source_x, unsigned int source_y) const;
-  void enqueue(
-    unsigned int index,
-    unsigned int x,
-    unsigned int y,
-    unsigned int source_x,
-    unsigned int source_y);
-  void computeCaches();
-  int generateIntegerDistances();
+  unsigned char computeCost(double distance, unsigned char source_cost) const;
 
   double cost_scaling_factor_;
   double resolution_;
   unsigned int cell_radius_;
-  unsigned int cached_cell_radius_;
-  unsigned int cache_length_;
-  unsigned char base_cost_;
-  unsigned char cached_base_cost_;
   bool inflate_unknown_;
-  std::size_t last_seen_size_;
-  std::vector<std::vector<CellData>> inflation_cells_;
-  std::vector<std::vector<int>> distance_matrix_;
-  std::vector<bool> seen_;
-  std::vector<unsigned char> cached_costs_;
-  std::vector<double> cached_distances_;
 };
 
 }  // namespace semantic_costmap_plugin

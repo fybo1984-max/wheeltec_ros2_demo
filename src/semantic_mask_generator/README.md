@@ -61,9 +61,11 @@ not start the camera, localization, Nav2, a controller, or robot hardware.
 The optional loading-zone input uses a map-frame polygon from
 `loading_zone_vertices_m` and a `std_msgs/Bool` state on
 `/semantic/loading_zone_active`. When enabled, `true` overlays the configured
-soft risk value and `false` removes the zone on the next mask publication. The
-default polygon is a placeholder and must be replaced with measured experiment
-coordinates before enabling this input.
+soft risk value and `false` removes the zone on the next mask publication.
+The state is a heartbeat: the active zone clears when no state message arrives
+for `loading_state_timeout_sec` (default `2.0 s`). The default polygon is a
+placeholder and must be replaced with measured experiment coordinates before
+enabling this input.
 
 `risk_value_scale` and `risk_radius_scale` apply validated positive
 multipliers to every configured class value and radius. They are intended for

@@ -20,6 +20,7 @@ import pytest
 from semantic_mask_generator.core import build_marker_profile_map
 from semantic_mask_generator.core import decode_depth_image
 from semantic_mask_generator.core import GridSpec
+from semantic_mask_generator.core import loading_zone_state_is_active
 from semantic_mask_generator.core import median_depth
 from semantic_mask_generator.core import ObservationStore
 from semantic_mask_generator.core import project_pixel
@@ -161,6 +162,18 @@ def test_risk_profile_value_and_radius_scales_are_validated():
             1.0,
             1.01,
         )
+
+
+def test_loading_zone_state_requires_fresh_active_heartbeat():
+    assert loading_zone_state_is_active(True, 10.0, 11.9, 2.0)
+    assert loading_zone_state_is_active(True, 10.0, 12.0, 2.0)
+    assert not loading_zone_state_is_active(True, 10.0, 12.01, 2.0)
+    assert not loading_zone_state_is_active(False, 10.0, 10.1, 2.0)
+    assert not loading_zone_state_is_active(True, None, 10.1, 2.0)
+    assert loading_zone_state_is_active(True, 10.0, 9.9, 2.0)
+
+    with pytest.raises(ValueError, match='timeout'):
+        loading_zone_state_is_active(True, 10.0, 10.1, 0.0)
 
 
 def test_observation_holds_then_decays_and_expires():

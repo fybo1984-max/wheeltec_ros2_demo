@@ -32,9 +32,9 @@ TEST(MaskInflator, ProducesBoundedMonotonicSoftCosts)
   grid[5 * width + 5] = base_cost;
 
   semantic_costmap_plugin::MaskInflator inflator(
-    3, 2.0, false, 0.1, base_cost);
+    3, 2.0, false, 0.1);
   inflator.inflateCosts(
-    grid.data(), 0, 0, width, height, width, height, base_cost);
+    grid.data(), 0, 0, width, height, width, height);
 
   EXPECT_EQ(grid[5 * width + 5], base_cost);
   EXPECT_GT(grid[5 * width + 6], grid[5 * width + 7]);
@@ -49,19 +49,19 @@ TEST(MaskInflator, RepeatedUpdatesDoNotRetainOldSources)
   constexpr unsigned int height = 9;
   constexpr unsigned char base_cost = 125;
   semantic_costmap_plugin::MaskInflator inflator(
-    2, 2.0, false, 0.1, base_cost);
+    2, 2.0, false, 0.1);
 
   std::vector<unsigned char> first(
     width * height, nav2_costmap_2d::FREE_SPACE);
   first[2 * width + 2] = base_cost;
   inflator.inflateCosts(
-    first.data(), 0, 0, width, height, width, height, base_cost);
+    first.data(), 0, 0, width, height, width, height);
 
   std::vector<unsigned char> second(
     width * height, nav2_costmap_2d::FREE_SPACE);
   second[6 * width + 6] = base_cost;
   inflator.inflateCosts(
-    second.data(), 0, 0, width, height, width, height, base_cost);
+    second.data(), 0, 0, width, height, width, height);
 
   EXPECT_EQ(second[2 * width + 2], nav2_costmap_2d::FREE_SPACE);
   EXPECT_GT(second[6 * width + 5], nav2_costmap_2d::FREE_SPACE);
@@ -77,11 +77,32 @@ TEST(MaskInflator, ZeroRadiusLeavesMapUnchanged)
   const auto original = grid;
 
   semantic_costmap_plugin::MaskInflator inflator(
-    0, 2.0, false, 0.05, base_cost);
+    0, 2.0, false, 0.05);
   inflator.inflateCosts(
-    grid.data(), 0, 0, width, width, width, width, base_cost);
+    grid.data(), 0, 0, width, width, width, width);
 
   EXPECT_EQ(grid, original);
+}
+
+TEST(MaskInflator, InflatesMixedRiskSourcesIndependently)
+{
+  constexpr unsigned int width = 13;
+  constexpr unsigned int height = 5;
+  constexpr unsigned char high_cost = 180;
+  constexpr unsigned char low_cost = 90;
+  std::vector<unsigned char> grid(
+    width * height, nav2_costmap_2d::FREE_SPACE);
+  grid[2 * width + 2] = high_cost;
+  grid[2 * width + 10] = low_cost;
+
+  semantic_costmap_plugin::MaskInflator inflator(2, 2.0, false, 0.1);
+  inflator.inflateCosts(
+    grid.data(), 0, 0, width, height, width, height);
+
+  EXPECT_EQ(grid[2 * width + 2], high_cost);
+  EXPECT_EQ(grid[2 * width + 10], low_cost);
+  EXPECT_GT(grid[2 * width + 3], grid[2 * width + 9]);
+  EXPECT_GT(grid[2 * width + 9], nav2_costmap_2d::FREE_SPACE);
 }
 
 }  // namespace
